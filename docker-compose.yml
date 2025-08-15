@@ -1,0 +1,488 @@
+version: '3.8'
+
+services:
+  # Zookeeper Ensemble
+  zookeeper-1:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper-1
+    container_name: zookeeper-1
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_SERVERS: zookeeper-1:2888:3888;zookeeper-2:2888:3888;zookeeper-3:2888:3888
+    networks:
+      - fraud-detection-net
+    volumes:
+      - zookeeper-1-data:/var/lib/zookeeper/data
+      - zookeeper-1-logs:/var/lib/zookeeper/log
+
+  zookeeper-2:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper-2
+    container_name: zookeeper-2
+    ports:
+      - "2182:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SERVER_ID: 2
+      ZOOKEEPER_SERVERS: zookeeper-1:2888:3888;zookeeper-2:2888:3888;zookeeper-3:2888:3888
+    networks:
+      - fraud-detection-net
+    volumes:
+      - zookeeper-2-data:/var/lib/zookeeper/data
+      - zookeeper-2-logs:/var/lib/zookeeper/log
+
+  zookeeper-3:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper-3
+    container_name: zookeeper-3
+    ports:
+      - "2183:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SERVER_ID: 3
+      ZOOKEEPER_SERVERS: zookeeper-1:2888:3888;zookeeper-2:2888:3888;zookeeper-3:2888:3888
+    networks:
+      - fraud-detection-net
+    volumes:
+      - zookeeper-3-data:/var/lib/zookeeper/data
+      - zookeeper-3-logs:/var/lib/zookeeper/log
+
+  # Kafka Cluster
+  kafka-1:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka-1
+    container_name: kafka-1
+    depends_on:
+      - zookeeper-1
+      - zookeeper-2
+      - zookeeper-3
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka-1:29092
+      KAFKA_CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 3
+      KAFKA_CONFLUENT_METRICS_ENABLE: 'true'
+      KAFKA_CONFLUENT_SUPPORT_CUSTOMER_ID: anonymous
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_NUM_PARTITIONS: 12
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_COMPRESSION_TYPE: 'lz4'
+      KAFKA_JMX_PORT: 19092
+      KAFKA_JMX_OPTS: '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka-1 -Dcom.sun.management.jmxremote.rmi.port=19092'
+    networks:
+      - fraud-detection-net
+    volumes:
+      - kafka-1-data:/var/lib/kafka/data
+
+  kafka-2:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka-2
+    container_name: kafka-2
+    depends_on:
+      - zookeeper-1
+      - zookeeper-2
+      - zookeeper-3
+    ports:
+      - "9093:9093"
+      - "19093:19093"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:29093,PLAINTEXT_HOST://localhost:9093
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka-2:29093
+      KAFKA_CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 3
+      KAFKA_CONFLUENT_METRICS_ENABLE: 'true'
+      KAFKA_CONFLUENT_SUPPORT_CUSTOMER_ID: anonymous
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_NUM_PARTITIONS: 12
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_COMPRESSION_TYPE: 'lz4'
+      KAFKA_JMX_PORT: 19093
+      KAFKA_JMX_OPTS: '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka-2 -Dcom.sun.management.jmxremote.rmi.port=19093'
+    networks:
+      - fraud-detection-net
+    volumes:
+      - kafka-2-data:/var/lib/kafka/data
+
+  kafka-3:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka-3
+    container_name: kafka-3
+    depends_on:
+      - zookeeper-1
+      - zookeeper-2
+      - zookeeper-3
+    ports:
+      - "9094:9094"
+      - "19094:19094"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:29094,PLAINTEXT_HOST://localhost:9094
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka-3:29094
+      KAFKA_CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 3
+      KAFKA_CONFLUENT_METRICS_ENABLE: 'true'
+      KAFKA_CONFLUENT_SUPPORT_CUSTOMER_ID: anonymous
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_NUM_PARTITIONS: 12
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_COMPRESSION_TYPE: 'lz4'
+      KAFKA_JMX_PORT: 19094
+      KAFKA_JMX_OPTS: '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka-3 -Dcom.sun.management.jmxremote.rmi.port=19094'
+    networks:
+      - fraud-detection-net
+    volumes:
+      - kafka-3-data:/var/lib/kafka/data
+
+  # Redis Cluster (3 Masters + 3 Slaves)
+  redis-master-1:
+    image: redis:7.0-alpine
+    hostname: redis-master-1
+    container_name: redis-master-1
+    ports:
+      - "6379:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./config/redis/redis-master.conf:/usr/local/etc/redis/redis.conf
+      - redis-master-1-data:/data
+    networks:
+      - fraud-detection-net
+
+  redis-master-2:
+    image: redis:7.0-alpine
+    hostname: redis-master-2
+    container_name: redis-master-2
+    ports:
+      - "6380:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./config/redis/redis-master.conf:/usr/local/etc/redis/redis.conf
+      - redis-master-2-data:/data
+    networks:
+      - fraud-detection-net
+
+  redis-master-3:
+    image: redis:7.0-alpine
+    hostname: redis-master-3
+    container_name: redis-master-3
+    ports:
+      - "6381:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./config/redis/redis-master.conf:/usr/local/etc/redis/redis.conf
+      - redis-master-3-data:/data
+    networks:
+      - fraud-detection-net
+
+  redis-slave-1:
+    image: redis:7.0-alpine
+    hostname: redis-slave-1
+    container_name: redis-slave-1
+    ports:
+      - "6382:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./config/redis/redis-slave.conf:/usr/local/etc/redis/redis.conf
+      - redis-slave-1-data:/data
+    networks:
+      - fraud-detection-net
+    depends_on:
+      - redis-master-1
+
+  redis-slave-2:
+    image: redis:7.0-alpine
+    hostname: redis-slave-2
+    container_name: redis-slave-2
+    ports:
+      - "6383:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./config/redis/redis-slave.conf:/usr/local/etc/redis/redis.conf
+      - redis-slave-2-data:/data
+    networks:
+      - fraud-detection-net
+    depends_on:
+      - redis-master-2
+
+  redis-slave-3:
+    image: redis:7.0-alpine
+    hostname: redis-slave-3
+    container_name: redis-slave-3
+    ports:
+      - "6384:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./config/redis/redis-slave.conf:/usr/local/etc/redis/redis.conf
+      - redis-slave-3-data:/data
+    networks:
+      - fraud-detection-net
+    depends_on:
+      - redis-master-3
+
+  # Flink Cluster
+  flink-jobmanager:
+    image: flink:1.17-scala_2.12-java11
+    hostname: flink-jobmanager
+    container_name: flink-jobmanager
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+        parallelism.default: 12
+        jobmanager.memory.process.size: 2048m
+        taskmanager.memory.process.size: 4096m
+        taskmanager.memory.flink.size: 3072m
+        state.backend: rocksdb
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+        state.savepoints.dir: file:///tmp/flink-savepoints
+        execution.checkpointing.interval: 10s
+        execution.checkpointing.min-pause: 5s
+        execution.checkpointing.timeout: 60s
+        execution.checkpointing.max-concurrent-checkpoints: 1
+        restart-strategy: fixed-delay
+        restart-strategy.fixed-delay.attempts: 3
+        restart-strategy.fixed-delay.delay: 10s
+        metrics.reporter.prom.class: org.apache.flink.metrics.prometheus.PrometheusReporter
+        metrics.reporter.prom.port: 9249
+    volumes:
+      - flink-jobmanager-data:/tmp
+    networks:
+      - fraud-detection-net
+
+  flink-taskmanager-1:
+    image: flink:1.17-scala_2.12-java11
+    hostname: flink-taskmanager-1
+    container_name: flink-taskmanager-1
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    scale: 1
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+        parallelism.default: 12
+        taskmanager.memory.process.size: 4096m
+        taskmanager.memory.flink.size: 3072m
+        metrics.reporter.prom.class: org.apache.flink.metrics.prometheus.PrometheusReporter
+        metrics.reporter.prom.port: 9249
+    volumes:
+      - flink-taskmanager-1-data:/tmp
+    networks:
+      - fraud-detection-net
+
+  flink-taskmanager-2:
+    image: flink:1.17-scala_2.12-java11
+    hostname: flink-taskmanager-2
+    container_name: flink-taskmanager-2
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    scale: 1
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+        parallelism.default: 12
+        taskmanager.memory.process.size: 4096m
+        taskmanager.memory.flink.size: 3072m
+        metrics.reporter.prom.class: org.apache.flink.metrics.prometheus.PrometheusReporter
+        metrics.reporter.prom.port: 9249
+    volumes:
+      - flink-taskmanager-2-data:/tmp
+    networks:
+      - fraud-detection-net
+
+  flink-taskmanager-3:
+    image: flink:1.17-scala_2.12-java11
+    hostname: flink-taskmanager-3
+    container_name: flink-taskmanager-3
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    scale: 1
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+        parallelism.default: 12
+        taskmanager.memory.process.size: 4096m
+        taskmanager.memory.flink.size: 3072m
+        metrics.reporter.prom.class: org.apache.flink.metrics.prometheus.PrometheusReporter
+        metrics.reporter.prom.port: 9249
+    volumes:
+      - flink-taskmanager-3-data:/tmp
+    networks:
+      - fraud-detection-net
+
+  # PostgreSQL for metadata
+  postgres:
+    image: postgres:15-alpine
+    hostname: postgres
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: fraud_detection
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - fraud-detection-net
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    hostname: prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - fraud-detection-net
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    hostname: grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - fraud-detection-net
+    depends_on:
+      - prometheus
+
+  # Schema Registry for Kafka
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.4.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    ports:
+      - "8082:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka-1:29092,kafka-2:29093,kafka-3:29094'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    networks:
+      - fraud-detection-net
+
+  # Kafka Connect
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:7.4.0
+    hostname: kafka-connect
+    container_name: kafka-connect
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+      - schema-registry
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: 'kafka-1:29092,kafka-2:29093,kafka-3:29094'
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: compose-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR
+    networks:
+      - fraud-detection-net
+
+networks:
+  fraud-detection-net:
+    driver: bridge
+
+volumes:
+  zookeeper-1-data:
+  zookeeper-1-logs:
+  zookeeper-2-data:
+  zookeeper-2-logs:
+  zookeeper-3-data:
+  zookeeper-3-logs:
+  kafka-1-data:
+  kafka-2-data:
+  kafka-3-data:
+  redis-master-1-data:
+  redis-master-2-data:
+  redis-master-3-data:
+  redis-slave-1-data:
+  redis-slave-2-data:
+  redis-slave-3-data:
+  flink-jobmanager-data:
+  flink-taskmanager-1-data:
+  flink-taskmanager-2-data:
+  flink-taskmanager-3-data:
+  postgres-data:
+  prometheus-data:
+  grafana-data:

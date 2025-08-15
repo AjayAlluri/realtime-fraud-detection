@@ -1,0 +1,91 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "fraud_detection_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'kafka'
+    static_configs:
+      - targets: 
+        - 'kafka-1:19092'
+        - 'kafka-2:19093'  
+        - 'kafka-3:19094'
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  - job_name: 'flink'
+    static_configs:
+      - targets:
+        - 'flink-jobmanager:9249'
+        - 'flink-taskmanager-1:9249'
+        - 'flink-taskmanager-2:9249'
+        - 'flink-taskmanager-3:9249'
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  - job_name: 'redis'
+    static_configs:
+      - targets:
+        - 'redis-master-1:6379'
+        - 'redis-master-2:6379'
+        - 'redis-master-3:6379'
+        - 'redis-slave-1:6379'
+        - 'redis-slave-2:6379'
+        - 'redis-slave-3:6379'
+    scrape_interval: 10s
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+
+  - job_name: 'fraud-detection-api'
+    static_configs:
+      - targets: ['api-gateway:8080']
+    scrape_interval: 5s
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'data-simulator'
+    static_configs:
+      - targets: ['data-simulator:8000']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  - job_name: 'ml-inference'
+    static_configs:
+      - targets: ['ml-inference:5000']
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  - job_name: 'feature-store'
+    static_configs:
+      - targets: ['feature-store:7000']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  - job_name: 'kafka-exporter'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+    scrape_interval: 15s
+
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
