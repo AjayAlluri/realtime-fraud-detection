@@ -1,0 +1,198 @@
+# Global configuration
+global:
+  imageRegistry: ""
+  storageClass: ""
+  
+# Flink cluster configuration
+flink:
+  enabled: true
+  image:
+    repository: flink
+    tag: "1.18"
+    pullPolicy: IfNotPresent
+  jobManager:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+  taskManager:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 2000m
+        memory: 4Gi
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+    taskSlots: 4
+  
+# Data simulator configuration
+dataSimulator:
+  enabled: true
+  image:
+    repository: fraud-detection/data-simulator
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  
+# ML models service configuration
+mlModels:
+  enabled: true
+  image:
+    repository: fraud-detection/ml-models
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 3
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 4Gi
+    limits:
+      cpu: 2000m
+      memory: 8Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    
+# API Gateway configuration
+apiGateway:
+  enabled: true
+  image:
+    repository: fraud-detection/api-gateway
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  service:
+    type: LoadBalancer
+    port: 8080
+    
+# Frontend dashboard configuration
+frontend:
+  enabled: true
+  image:
+    repository: fraud-detection/frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    type: LoadBalancer
+    port: 3000
+    
+# Kafka configuration (using Bitnami chart)
+kafka:
+  enabled: true
+  replicaCount: 3
+  auth:
+    enabled: false
+  persistence:
+    enabled: true
+    size: 100Gi
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  zookeeper:
+    replicaCount: 3
+    persistence:
+      enabled: true
+      size: 20Gi
+      
+# Redis configuration (using Bitnami chart)
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 50Gi
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 50Gi
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+        
+# Monitoring configuration
+monitoring:
+  prometheus:
+    enabled: true
+    server:
+      persistentVolume:
+        enabled: true
+        size: 50Gi
+  grafana:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 10Gi
+    adminPassword: admin123
+    
+# Security configuration
+security:
+  rbac:
+    enabled: true
+  networkPolicies:
+    enabled: true
+  podSecurityPolicy:
+    enabled: true
+    
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: fraud-detection.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: api-gateway

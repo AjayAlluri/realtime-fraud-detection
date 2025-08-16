@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fraud-detection
+  labels:
+    name: fraud-detection
+    app.kubernetes.io/name: fraud-detection
+    app.kubernetes.io/instance: fraud-detection
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: namespace
+    app.kubernetes.io/part-of: fraud-detection-system

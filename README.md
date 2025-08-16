@@ -10,6 +10,8 @@ Payment Transactions → Kafka → Flink (ML Processing) → Redis → Decision 
                    AWS S3 (Data Lake) → SageMaker (ML Training) → Model Registry
                         ↓
                    Real-time Dashboard ← WebSocket ← API Gateway
+                        ↓
+              Kubernetes Orchestration ← Docker Containers ← CI/CD Pipeline
 ```
 
 ## Key Features
@@ -27,7 +29,8 @@ Payment Transactions → Kafka → Flink (ML Processing) → Redis → Decision 
 - **Apache Kafka**: Message streaming and event sourcing
 - **Apache Flink**: Real-time stream processing
 - **Redis Cluster**: Distributed caching and feature store
-- **Docker**: Containerization and orchestration
+- **Docker**: Containerization and development environment
+- **Kubernetes**: Production orchestration and auto-scaling
 
 ### Machine Learning
 - **XGBoost**: Primary fraud classifier
@@ -63,9 +66,13 @@ Payment Transactions → Kafka → Flink (ML Processing) → Redis → Decision 
 - Java 11+
 - Python 3.8+
 - Node.js 16+
+- kubectl (for Kubernetes deployment)
+- Helm 3+ (for Kubernetes package management)
 - AWS CLI (for Phase 4)
 
 ### Launch the System
+
+#### Docker Compose (Development)
 ```bash
 # Start all services
 ./scripts/setup/start-all.sh
@@ -75,6 +82,18 @@ Payment Transactions → Kafka → Flink (ML Processing) → Redis → Decision 
 
 # Start data simulation
 ./scripts/setup/start-simulation.sh
+
+# Access dashboard
+open http://localhost:3000
+```
+
+#### Kubernetes (Production)
+```bash
+# Deploy to Kubernetes
+helm install fraud-detection ./k8s/helm/fraud-detection
+
+# Port forward to access dashboard
+kubectl port-forward svc/dashboard 3000:3000
 
 # Access dashboard
 open http://localhost:3000
@@ -100,13 +119,21 @@ open http://localhost:3000
 - Feature store implementation
 - Model serving infrastructure
 
-### Phase 4: AWS Integration
+### Phase 4: Kubernetes Orchestration
+- Helm charts for all services
+- Auto-scaling with HorizontalPodAutoscaler
+- StatefulSets for stateful services
+- Service mesh for secure communication
+- GitOps deployment workflows
+
+### Phase 5: AWS Integration
 - S3 data lake for batch processing
 - DynamoDB for user profiles
 - Lambda functions for serverless processing
 - CloudWatch monitoring and alerting
+- EKS for managed Kubernetes
 
-### Phase 5: Dashboard & Optimization
+### Phase 6: Dashboard & Optimization
 - React dashboard with real-time visualizations
 - WebSocket streaming for live updates
 - Performance optimization
@@ -148,7 +175,11 @@ git push origin phase-X-name
 ```
 realtime-fraud-detection/
 ├── docker/                 # Docker configurations
-├── infrastructure/         # AWS CDK, Terraform, K8s
+├── k8s/                   # Kubernetes manifests
+│   ├── helm/             # Helm charts
+│   ├── manifests/        # Raw YAML files
+│   └── operators/        # Custom operators
+├── infrastructure/         # AWS CDK, Terraform
 ├── services/              # Microservices
 │   ├── data-simulator/    # Transaction generation
 │   ├── flink-jobs/       # Stream processing
