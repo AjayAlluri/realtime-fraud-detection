@@ -175,3 +175,107 @@ class BertTextAnalyzer:
         except Exception as e:
             self.logger.error(f"Error in text analysis: {str(e)}")
             return {'overall_text_risk': 0.0}
+    
+    def _analyze_single_text(self, text: str, text_type: str) -> float:
+        """
+        Analyze a single text field using BERT.
+        
+        Args:
+            text: Text to analyze
+            text_type: Type of text (merchant, description, combined)
+        
+        Returns:
+            Fraud risk score between 0 and 1
+        """
+        try:
+            if not text or not text.strip():
+                return 0.0
+            
+            # Preprocess text
+            processed_text = self._preprocess_text(text)
+            
+            # Tokenize
+            inputs = self.tokenizer.encode_plus(
+                processed_text,
+                add_special_tokens=True,
+                max_length=self.max_length,
+                padding='max_length',
+                truncation=True,
+                return_tensors='pt'
+            )
+            
+            # Move to device
+            input_ids = inputs['input_ids'].to(self.device)
+            attention_mask = inputs['attention_mask'].to(self.device)
+            
+            # Get prediction
+            with torch.no_grad():
+                outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+                logits = outputs.logits
+                
+                # Apply softmax to get probabilities
+                probabilities = torch.softmax(logits, dim=-1)
+                
+                # Return fraud probability (class 1)
+                fraud_prob = probabilities[0][1].item()
+                
+                return fraud_prob
+        
+        except Exception as e:
+            self.logger.warning(f"Error analyzing {text_type} text: {str(e)}")
+            return 0.0
+    
+    def _preprocess_text(self, text: str) -> str:
+        """
+        Preprocess text for BERT analysis.
+        
+        Args:
+            text: Raw text
+        
+        Returns:
+            Preprocessed text
+        """
+        if not text:
+            return ""
+        
+        # Basic cleaning
+        text = text.strip().lower()
+        
+        # Remove special characters but keep alphanumeric and spaces
+        import re
+        text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text)
+        
+        # Remove extra whitespace
+        text = ' '.join(text.split())
+        
+        return text
+    
+    def _create_combined_text(self, text_data: Dict[str, str]) -> str:
+        """
+        Create combined text from multiple fields for contextual analysis.
+        
+        Args:
+            text_data: Dictionary of text fields
+        
+        Returns:
+            Combined text string
+        """
+        components = []
+        
+        # Add merchant name
+        if 'merchant_name' in text_data and text_data['merchant_name']:
+            components.append(f"Merchant: {text_data['merchant_name']}")
+        
+        # Add description
+        if 'description' in text_data and text_data['description']:
+            components.append(f"Description: {text_data['description']}")
+        
+        # Add category
+        if 'category' in text_data and text_data['category']:
+            components.append(f"Category: {text_data['category']}")
+        
+        # Add location
+        if 'location' in text_data and text_data['location']:
+            components.append(f"Location: {text_data['location']}")
+        
+        return " | ".join(components)
