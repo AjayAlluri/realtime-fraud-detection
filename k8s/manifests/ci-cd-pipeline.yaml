@@ -1,0 +1,460 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins
+  namespace: fraud-detection
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: jenkins
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["extensions", "networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: jenkins
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: fraud-detection
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+  namespace: fraud-detection
+  labels:
+    app: jenkins
+    component: ci-cd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      serviceAccountName: jenkins
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - name: jenkins
+        image: jenkins/jenkins:2.414.1-lts
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 50000
+          name: jnlp
+        env:
+        - name: JAVA_OPTS
+          value: "-Xmx2048m -Dhudson.slaves.NodeProvisioner.MARGIN=50 -Dhudson.slaves.NodeProvisioner.MARGIN0=0.85"
+        - name: JENKINS_OPTS
+          value: "--httpPort=8080"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        volumeMounts:
+        - name: jenkins-home
+          mountPath: /var/jenkins_home
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+        - name: jenkins-config
+          mountPath: /var/jenkins_home/casc_configs
+        livenessProbe:
+          httpGet:
+            path: /login
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /login
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+      volumes:
+      - name: jenkins-home
+        persistentVolumeClaim:
+          claimName: jenkins-home-pvc
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+      - name: jenkins-config
+        configMap:
+          name: jenkins-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-service
+  namespace: fraud-detection
+  labels:
+    app: jenkins
+    component: ci-cd
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+    nodePort: 30808
+  - port: 50000
+    targetPort: 50000
+    name: jnlp
+    nodePort: 30500
+  selector:
+    app: jenkins
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-home-pvc
+  namespace: fraud-detection
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-config
+  namespace: fraud-detection
+data:
+  jenkins.yaml: |
+    jenkins:
+      systemMessage: "Fraud Detection System CI/CD Pipeline"
+      numExecutors: 2
+      scmCheckoutRetryCount: 3
+      mode: NORMAL
+      
+      securityRealm:
+        local:
+          allowsSignup: false
+          users:
+            - id: "admin"
+              password: "${JENKINS_ADMIN_PASSWORD:-admin123}"
+              properties:
+                - "hudson.tasks.Mailer$UserProperty":
+                    emailAddress: "admin@fraud-detection.local"
+      
+      authorizationStrategy:
+        globalMatrix:
+          permissions:
+            - "Overall/Administer:admin"
+            - "Overall/Read:authenticated"
+      
+      clouds:
+        - kubernetes:
+            name: "kubernetes"
+            serverUrl: "https://kubernetes.default:443"
+            namespace: "fraud-detection"
+            jenkinsUrl: "http://jenkins-service:8080"
+            jenkinsTunnel: "jenkins-service:50000"
+            connectTimeout: 5
+            readTimeout: 15
+            containerCapStr: 100
+            maxRequestsPerHostStr: 32
+            retentionTimeout: 5
+            templates:
+              - name: "fraud-detection-agent"
+                namespace: "fraud-detection"
+                label: "fraud-detection-agent"
+                containers:
+                  - name: "jnlp"
+                    image: "jenkins/inbound-agent:4.13-2"
+                    workingDir: "/home/jenkins/agent"
+                    args: "${computer.jnlpmac} ${computer.name}"
+                    resourceRequestCpu: "500m"
+                    resourceRequestMemory: "1Gi"
+                    resourceLimitCpu: "1"
+                    resourceLimitMemory: "2Gi"
+                  - name: "docker"
+                    image: "docker:20.10.21-dind"
+                    privileged: true
+                    resourceRequestCpu: "500m"
+                    resourceRequestMemory: "1Gi"
+                    resourceLimitCpu: "1"
+                    resourceLimitMemory: "2Gi"
+                  - name: "kubectl"
+                    image: "bitnami/kubectl:1.28"
+                    command: "sleep"
+                    args: "infinity"
+                    resourceRequestCpu: "100m"
+                    resourceRequestMemory: "256Mi"
+                serviceAccount: "jenkins"
+      
+      globalLibraries:
+        libraries:
+          - name: "fraud-detection-pipeline"
+            defaultVersion: "main"
+            retriever:
+              modernSCM:
+                scm:
+                  git:
+                    remote: "https://github.com/fraud-detection/jenkins-pipeline-library.git"
+    
+    jobs:
+      - script: |
+          multibranchPipelineJob('fraud-detection-system') {
+            branchSources {
+              git {
+                id('fraud-detection')
+                remote('https://github.com/AjayAlluri/realtime-fraud-detection.git')
+                credentialsId('')
+              }
+            }
+            factory {
+              workflowBranchProjectFactory {
+                scriptPath('Jenkinsfile')
+              }
+            }
+            orphanedItemStrategy {
+              discardOldItems {
+                numToKeep(20)
+              }
+            }
+            triggers {
+              periodicFolderTrigger {
+                interval('5m')
+              }
+            }
+          }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: model-training-job
+  namespace: fraud-detection
+  labels:
+    app: model-training
+    component: ml-pipeline
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: model-training
+          containers:
+          - name: model-trainer
+            image: fraud-detection/ml-models:latest
+            command:
+            - python
+            - -m
+            - training.train_models
+            env:
+            - name: TRAINING_DATA_PATH
+              value: "/data/training"
+            - name: MODEL_OUTPUT_PATH
+              value: "/models"
+            - name: REDIS_HOST
+              value: "redis-master-service"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka-service:9092"
+            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "2"
+              limits:
+                memory: "8Gi"
+                cpu: "4"
+            volumeMounts:
+            - name: training-data
+              mountPath: /data
+            - name: model-storage
+              mountPath: /models
+          volumes:
+          - name: training-data
+            persistentVolumeClaim:
+              claimName: training-data-pvc
+          - name: model-storage
+            persistentVolumeClaim:
+              claimName: ml-models-pvc
+          restartPolicy: OnFailure
+      backoffLimit: 3
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: model-training
+  namespace: fraud-detection
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: model-training
+  namespace: fraud-detection
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: model-training
+  namespace: fraud-detection
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: model-training
+subjects:
+- kind: ServiceAccount
+  name: model-training
+  namespace: fraud-detection
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: training-data-pvc
+  namespace: fraud-detection
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: model-validation-job
+  namespace: fraud-detection
+  labels:
+    app: model-validation
+    component: ml-pipeline
+spec:
+  schedule: "0 6 * * *"  # Daily at 6 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: model-training
+          containers:
+          - name: model-validator
+            image: fraud-detection/ml-models:latest
+            command:
+            - python
+            - -m
+            - validation.validate_models
+            env:
+            - name: MODEL_PATH
+              value: "/models"
+            - name: VALIDATION_DATA_PATH
+              value: "/data/validation"
+            - name: PROMETHEUS_GATEWAY
+              value: "prometheus-pushgateway:9091"
+            resources:
+              requests:
+                memory: "2Gi"
+                cpu: "1"
+              limits:
+                memory: "4Gi"
+                cpu: "2"
+            volumeMounts:
+            - name: model-storage
+              mountPath: /models
+              readOnly: true
+            - name: validation-data
+              mountPath: /data
+              readOnly: true
+          volumes:
+          - name: model-storage
+            persistentVolumeClaim:
+              claimName: ml-models-pvc
+          - name: validation-data
+            persistentVolumeClaim:
+              claimName: training-data-pvc
+          restartPolicy: OnFailure
+      backoffLimit: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-pushgateway
+  namespace: fraud-detection
+  labels:
+    app: prometheus-pushgateway
+    component: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-pushgateway
+  template:
+    metadata:
+      labels:
+        app: prometheus-pushgateway
+    spec:
+      containers:
+      - name: pushgateway
+        image: prom/pushgateway:v1.6.0
+        ports:
+        - containerPort: 9091
+          name: pushgateway
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 9091
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 9091
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-pushgateway
+  namespace: fraud-detection
+  labels:
+    app: prometheus-pushgateway
+    component: monitoring
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9091
+    targetPort: 9091
+    name: pushgateway
+  selector:
+    app: prometheus-pushgateway
