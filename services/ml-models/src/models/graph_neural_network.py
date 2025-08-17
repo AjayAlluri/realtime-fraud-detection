@@ -224,3 +224,183 @@ class GraphFraudDetector:
                 'path_length_anomaly': 0.0,
                 'community_anomaly': 0.0
             }
+    
+    def _add_transaction_to_history(self, transaction_data: Dict[str, Any]) -> None:
+        """Add transaction to history for graph building."""
+        # Limit history size
+        if len(self.transaction_history) >= self.max_history_size:
+            self.transaction_history = self.transaction_history[-self.max_history_size//2:]
+        
+        self.transaction_history.append({
+            'user_id': transaction_data.get('user_id'),
+            'merchant_id': transaction_data.get('merchant_id'),
+            'device_id': transaction_data.get('device_id'),
+            'ip_address': transaction_data.get('ip_address'),
+            'amount': transaction_data.get('amount', 0),
+            'timestamp': transaction_data.get('timestamp'),
+            'is_fraud': transaction_data.get('is_fraud', False)
+        })
+    
+    def _build_transaction_graph(self, current_transaction: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Build transaction graph from recent transaction history.
+        
+        Returns:
+            Tuple of (node_features, edge_index)
+        """
+        try:
+            # Get recent transactions within time window
+            current_time = current_transaction.get('timestamp')
+            if not current_time:
+                return None, None
+            
+            # For simplification, create a small graph with key entities
+            entities = set()
+            relationships = []
+            
+            # Add current transaction entities
+            user_id = current_transaction.get('user_id')
+            merchant_id = current_transaction.get('merchant_id')
+            device_id = current_transaction.get('device_id')
+            
+            if user_id:
+                entities.add(f"user_{user_id}")
+            if merchant_id:
+                entities.add(f"merchant_{merchant_id}")
+            if device_id:
+                entities.add(f"device_{device_id}")
+            
+            # Add relationships from recent history
+            for tx in self.transaction_history[-100:]:  # Last 100 transactions
+                tx_user = f"user_{tx['user_id']}" if tx['user_id'] else None
+                tx_merchant = f"merchant_{tx['merchant_id']}" if tx['merchant_id'] else None
+                tx_device = f"device_{tx['device_id']}" if tx['device_id'] else None
+                
+                if tx_user and tx_merchant:
+                    entities.add(tx_user)
+                    entities.add(tx_merchant)
+                    relationships.append((tx_user, tx_merchant))
+                
+                if tx_user and tx_device:
+                    entities.add(tx_user)
+                    entities.add(tx_device)
+                    relationships.append((tx_user, tx_device))
+            
+            # Convert to tensors
+            entity_list = list(entities)
+            entity_to_idx = {entity: idx for idx, entity in enumerate(entity_list)}
+            
+            # Create node features (simplified)
+            num_nodes = len(entity_list)
+            node_features = torch.randn(num_nodes, 64)  # Random features for now
+            
+            # Create edge index
+            edge_list = []
+            for rel in relationships:
+                if rel[0] in entity_to_idx and rel[1] in entity_to_idx:
+                    src_idx = entity_to_idx[rel[0]]
+                    dst_idx = entity_to_idx[rel[1]]
+                    edge_list.append([src_idx, dst_idx])
+                    edge_list.append([dst_idx, src_idx])  # Bidirectional
+            
+            if edge_list:
+                edge_index = torch.tensor(edge_list).t().contiguous()
+            else:
+                edge_index = torch.empty((2, 0), dtype=torch.long)
+            
+            return node_features.to(self.device), edge_index.to(self.device)
+            
+        except Exception as e:
+            self.logger.warning(f"Error building transaction graph: {str(e)}")
+            return None, None
+    
+    def _predict_with_gnn(self, node_features: torch.Tensor, edge_index: torch.Tensor) -> float:
+        """Make prediction using the GNN model."""
+        try:
+            with torch.no_grad():
+                # Get model prediction
+                output = self.model(node_features, edge_index)
+                
+                # For fraud detection, we'll use the mean prediction across all nodes
+                # In practice, you'd focus on the specific transaction node
+                probabilities = torch.exp(output)  # Convert from log probabilities
+                fraud_probs = probabilities[:, 1]  # Fraud class probabilities
+                
+                # Return mean fraud probability
+                mean_fraud_prob = torch.mean(fraud_probs).item()
+                
+                return min(max(mean_fraud_prob, 0.0), 1.0)  # Clamp to [0, 1]
+                
+        except Exception as e:
+            self.logger.warning(f"Error in GNN prediction: {str(e)}")
+            return 0.0
+    
+    def _calculate_network_features(self, transaction_data: Dict[str, Any]) -> Dict[str, float]:
+        """Calculate network-based features from transaction history."""
+        features = {
+            'user_centrality': 0.0,
+            'merchant_centrality': 0.0,
+            'clustering_coefficient': 0.0,
+            'path_length_anomaly': 0.0,
+            'community_anomaly': 0.0
+        }
+        
+        try:
+            user_id = transaction_data.get('user_id')
+            merchant_id = transaction_data.get('merchant_id')
+            
+            if not user_id or not merchant_id:
+                return features
+            
+            # Calculate user centrality (simplified)
+            user_transactions = [tx for tx in self.transaction_history if tx['user_id'] == user_id]
+            unique_merchants = len(set(tx['merchant_id'] for tx in user_transactions if tx['merchant_id']))
+            features['user_centrality'] = min(unique_merchants / 10.0, 1.0)  # Normalize
+            
+            # Calculate merchant centrality
+            merchant_transactions = [tx for tx in self.transaction_history if tx['merchant_id'] == merchant_id]
+            unique_users = len(set(tx['user_id'] for tx in merchant_transactions if tx['user_id']))
+            features['merchant_centrality'] = min(unique_users / 100.0, 1.0)  # Normalize
+            
+            # Clustering coefficient (simplified)
+            # Measure how interconnected the user's transaction partners are
+            user_merchants = set(tx['merchant_id'] for tx in user_transactions if tx['merchant_id'])
+            if len(user_merchants) > 1:
+                # Check how many other users also transact with the same merchants
+                shared_connections = 0
+                for merchant in user_merchants:
+                    other_users = set(tx['user_id'] for tx in self.transaction_history 
+                                    if tx['merchant_id'] == merchant and tx['user_id'] != user_id)
+                    shared_connections += len(other_users)
+                
+                features['clustering_coefficient'] = min(shared_connections / (len(user_merchants) * 10), 1.0)
+            
+            # Path length anomaly (distance from normal transaction patterns)
+            avg_amount = sum(tx['amount'] for tx in user_transactions) / max(len(user_transactions), 1)
+            current_amount = transaction_data.get('amount', 0)
+            if avg_amount > 0:
+                amount_ratio = abs(current_amount - avg_amount) / avg_amount
+                features['path_length_anomaly'] = min(amount_ratio, 1.0)
+            
+            # Community anomaly (new vs. established patterns)
+            new_merchant = merchant_id not in [tx['merchant_id'] for tx in user_transactions[:-1]]
+            features['community_anomaly'] = 1.0 if new_merchant else 0.0
+            
+        except Exception as e:
+            self.logger.warning(f"Error calculating network features: {str(e)}")
+        
+        return features
+    
+    def get_performance_stats(self) -> Dict[str, float]:
+        """Get performance statistics for the graph analyzer."""
+        if self.total_predictions > 0:
+            avg_time = self.total_time_ms / self.total_predictions
+        else:
+            avg_time = 0.0
+        
+        return {
+            'total_predictions': self.total_predictions,
+            'avg_processing_time_ms': avg_time,
+            'total_processing_time_ms': self.total_time_ms,
+            'transaction_history_size': len(self.transaction_history)
+        }
