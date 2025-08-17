@@ -89,3 +89,138 @@ class GraphNeuralNetwork(nn.Module):
         x = self.conv_layers[-1](x)
         
         return F.log_softmax(x, dim=-1)
+
+
+class GraphFraudDetector:
+    """
+    Graph-based fraud detector using transaction networks.
+    Builds graphs from transaction data and applies GNN for fraud detection.
+    """
+    
+    def __init__(self, model_path: str = None, device: str = "auto"):
+        self.logger = get_logger("graph_fraud_detector")
+        
+        # Set device
+        if device == "auto":
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = torch.device(device)
+        
+        self.model = None
+        self.model_path = model_path
+        
+        # Graph construction parameters
+        self.max_nodes = 1000  # Maximum nodes in transaction graph
+        self.time_window_hours = 24  # Time window for building graphs
+        
+        # Performance tracking
+        self.total_predictions = 0
+        self.total_time_ms = 0.0
+        
+        # Transaction history for graph building
+        self.transaction_history = []
+        self.max_history_size = 10000
+        
+        self.logger.info(f"Graph fraud detector initialized on device: {self.device}")
+    
+    def load_model(self) -> None:
+        """Load the GNN model."""
+        try:
+            if self.model_path and torch.cuda.is_available():
+                self.logger.info(f"Loading GNN model from: {self.model_path}")
+                checkpoint = torch.load(self.model_path, map_location=self.device)
+                
+                # Create model with saved configuration
+                model_config = checkpoint.get('config', {})
+                self.model = GraphNeuralNetwork(
+                    input_dim=model_config.get('input_dim', 64),
+                    hidden_dim=model_config.get('hidden_dim', 128),
+                    output_dim=model_config.get('output_dim', 2),
+                    num_layers=model_config.get('num_layers', 3),
+                    dropout=model_config.get('dropout', 0.1)
+                )
+                
+                self.model.load_state_dict(checkpoint['model_state_dict'])
+                self.model.to(self.device)
+                self.model.eval()
+                
+                self.logger.info("GNN model loaded successfully")
+            else:
+                # Create dummy model for development
+                self._create_dummy_model()
+                
+        except Exception as e:
+            self.logger.error(f"Failed to load GNN model: {str(e)}")
+            self._create_dummy_model()
+    
+    def _create_dummy_model(self) -> None:
+        """Create a dummy GNN model for development."""
+        self.logger.warning("Creating dummy GNN model for development")
+        
+        self.model = GraphNeuralNetwork(
+            input_dim=64,
+            hidden_dim=128,
+            output_dim=2,
+            num_layers=3,
+            dropout=0.1
+        )
+        self.model.to(self.device)
+        self.model.eval()
+    
+    def analyze_transaction_network(self, transaction_data: Dict[str, Any]) -> Dict[str, float]:
+        """
+        Analyze transaction using graph neural network.
+        
+        Args:
+            transaction_data: Dictionary containing transaction information
+        
+        Returns:
+            Dictionary with network-based fraud risk scores
+        """
+        start_time = time.time()
+        
+        try:
+            # Add transaction to history
+            self._add_transaction_to_history(transaction_data)
+            
+            # Build transaction graph
+            graph_features, adjacency = self._build_transaction_graph(transaction_data)
+            
+            # Get GNN prediction
+            if graph_features is not None:
+                network_risk_score = self._predict_with_gnn(graph_features, adjacency)
+            else:
+                network_risk_score = 0.0
+            
+            # Calculate network features
+            network_features = self._calculate_network_features(transaction_data)
+            
+            # Combine results
+            results = {
+                'network_risk_score': network_risk_score,
+                'user_centrality': network_features['user_centrality'],
+                'merchant_centrality': network_features['merchant_centrality'],
+                'clustering_coefficient': network_features['clustering_coefficient'],
+                'path_length_anomaly': network_features['path_length_anomaly'],
+                'community_anomaly': network_features['community_anomaly']
+            }
+            
+            # Update performance metrics
+            processing_time = (time.time() - start_time) * 1000
+            self.total_predictions += 1
+            self.total_time_ms += processing_time
+            
+            self.logger.debug(f"Graph analysis completed in {processing_time:.2f}ms")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error in graph analysis: {str(e)}")
+            return {
+                'network_risk_score': 0.0,
+                'user_centrality': 0.0,
+                'merchant_centrality': 0.0,
+                'clustering_coefficient': 0.0,
+                'path_length_anomaly': 0.0,
+                'community_anomaly': 0.0
+            }
