@@ -225,3 +225,204 @@ class ABTestManager:
             )
         
         return summary
+    
+    def _validate_config(self, config: ABTestConfig) -> bool:
+        """Validate A/B test configuration."""
+        if not (0.0 <= config.traffic_split <= 1.0):
+            self.logger.error("Traffic split must be between 0.0 and 1.0")
+            return False
+        
+        if config.minimum_sample_size < 100:
+            self.logger.error("Minimum sample size should be at least 100")
+            return False
+        
+        if not (0.01 <= config.significance_level <= 0.1):
+            self.logger.error("Significance level should be between 0.01 and 0.1")
+            return False
+        
+        return True
+    
+    def _calculate_metrics(self, results: List[TestResult]) -> Dict[str, float]:
+        """Calculate metrics for a set of test results."""
+        if not results:
+            return {}
+        
+        # Basic metrics
+        total_samples = len(results)
+        
+        # Fraud detection metrics
+        fraud_detected = sum(1 for r in results if r.decision in ["DECLINE", "REVIEW"])
+        fraud_detection_rate = fraud_detected / total_samples
+        
+        # Performance metrics
+        avg_processing_time = sum(r.processing_time_ms for r in results) / total_samples
+        avg_prediction_score = sum(r.prediction for r in results) / total_samples
+        
+        # Decision distribution
+        decisions = [r.decision for r in results]
+        decision_counts = {}
+        for decision in ["APPROVE", "APPROVE_WITH_MONITORING", "REVIEW", "DECLINE"]:
+            decision_counts[f"{decision.lower()}_rate"] = decisions.count(decision) / total_samples
+        
+        metrics = {
+            'total_samples': total_samples,
+            'fraud_detection_rate': fraud_detection_rate,
+            'avg_processing_time_ms': avg_processing_time,
+            'avg_prediction_score': avg_prediction_score,
+            **decision_counts
+        }
+        
+        # Accuracy metrics (if actual fraud labels are available)
+        results_with_labels = [r for r in results if r.actual_fraud is not None]
+        if results_with_labels:
+            true_positives = sum(1 for r in results_with_labels 
+                               if r.actual_fraud and r.decision in ["DECLINE", "REVIEW"])
+            false_positives = sum(1 for r in results_with_labels 
+                                if not r.actual_fraud and r.decision in ["DECLINE", "REVIEW"])
+            true_negatives = sum(1 for r in results_with_labels 
+                               if not r.actual_fraud and r.decision in ["APPROVE", "APPROVE_WITH_MONITORING"])
+            false_negatives = sum(1 for r in results_with_labels 
+                                if r.actual_fraud and r.decision in ["APPROVE", "APPROVE_WITH_MONITORING"])
+            
+            if true_positives + false_positives > 0:
+                precision = true_positives / (true_positives + false_positives)
+            else:
+                precision = 0.0
+            
+            if true_positives + false_negatives > 0:
+                recall = true_positives / (true_positives + false_negatives)
+            else:
+                recall = 0.0
+            
+            if precision + recall > 0:
+                f1_score = 2 * (precision * recall) / (precision + recall)
+            else:
+                f1_score = 0.0
+            
+            accuracy = (true_positives + true_negatives) / len(results_with_labels)
+            
+            metrics.update({
+                'precision': precision,
+                'recall': recall,
+                'f1_score': f1_score,
+                'accuracy': accuracy,
+                'labeled_samples': len(results_with_labels)
+            })
+        
+        return metrics
+    
+    def _perform_statistical_test(
+        self, 
+        control_results: List[TestResult], 
+        treatment_results: List[TestResult], 
+        metric: str
+    ) -> Dict[str, Any]:
+        """Perform statistical significance test between control and treatment."""
+        try:
+            # Extract metric values
+            control_values = self._extract_metric_values(control_results, metric)
+            treatment_values = self._extract_metric_values(treatment_results, metric)
+            
+            if not control_values or not treatment_values:
+                return {'error': 'Insufficient data for statistical test'}
+            
+            # Perform t-test (simplified)
+            control_mean = np.mean(control_values)
+            treatment_mean = np.mean(treatment_values)
+            
+            control_std = np.std(control_values, ddof=1)
+            treatment_std = np.std(treatment_values, ddof=1)
+            
+            # Calculate effect size
+            pooled_std = np.sqrt(((len(control_values) - 1) * control_std**2 + 
+                                 (len(treatment_values) - 1) * treatment_std**2) / 
+                                (len(control_values) + len(treatment_values) - 2))
+            
+            if pooled_std > 0:
+                effect_size = (treatment_mean - control_mean) / pooled_std
+            else:
+                effect_size = 0.0
+            
+            # Simple confidence interval (95%)
+            se_diff = pooled_std * np.sqrt(1/len(control_values) + 1/len(treatment_values))
+            margin_error = 1.96 * se_diff  # Approximate 95% CI
+            
+            relative_improvement = ((treatment_mean - control_mean) / control_mean * 100) if control_mean != 0 else 0
+            
+            return {
+                'metric': metric,
+                'control_mean': control_mean,
+                'treatment_mean': treatment_mean,
+                'control_std': control_std,
+                'treatment_std': treatment_std,
+                'effect_size': effect_size,
+                'relative_improvement_percent': relative_improvement,
+                'confidence_interval_95': [
+                    (treatment_mean - control_mean) - margin_error,
+                    (treatment_mean - control_mean) + margin_error
+                ],
+                'is_significant': abs(effect_size) > 0.2,  # Simplified significance test
+                'sample_sizes': {
+                    'control': len(control_values),
+                    'treatment': len(treatment_values)
+                }
+            }
+            
+        except Exception as e:
+            return {'error': f'Statistical test failed: {str(e)}'}
+    
+    def _extract_metric_values(self, results: List[TestResult], metric: str) -> List[float]:
+        """Extract metric values from test results."""
+        if metric == "fraud_detection_rate":
+            return [1.0 if r.decision in ["DECLINE", "REVIEW"] else 0.0 for r in results]
+        elif metric == "processing_time":
+            return [r.processing_time_ms for r in results]
+        elif metric == "prediction_score":
+            return [r.prediction for r in results]
+        elif metric == "precision" and all(r.actual_fraud is not None for r in results):
+            # Calculate precision for each result (simplified)
+            values = []
+            for r in results:
+                if r.decision in ["DECLINE", "REVIEW"]:
+                    values.append(1.0 if r.actual_fraud else 0.0)
+            return values
+        else:
+            return []
+    
+    def stop_test(self, test_name: str) -> bool:
+        """Stop an active A/B test."""
+        if test_name in self.active_tests:
+            del self.active_tests[test_name]
+            self.logger.info(f"Stopped A/B test: {test_name}")
+            return True
+        return False
+    
+    def get_active_tests(self) -> List[str]:
+        """Get list of active test names."""
+        return list(self.active_tests.keys())
+    
+    def export_results(self, test_name: str) -> Dict[str, Any]:
+        """Export detailed results for analysis."""
+        if test_name not in self.test_results:
+            return {}
+        
+        results = self.test_results[test_name]
+        
+        return {
+            'test_name': test_name,
+            'export_timestamp': time.time(),
+            'total_results': len(results),
+            'results': [
+                {
+                    'transaction_id': r.transaction_id,
+                    'variant': r.variant.value,
+                    'model_used': r.model_used,
+                    'prediction': r.prediction,
+                    'decision': r.decision,
+                    'actual_fraud': r.actual_fraud,
+                    'processing_time_ms': r.processing_time_ms,
+                    'timestamp': r.timestamp
+                }
+                for r in results
+            ]
+        }
