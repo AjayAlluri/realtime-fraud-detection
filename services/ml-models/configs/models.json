@@ -1,0 +1,130 @@
+{
+  "ensemble": {
+    "strategy": "weighted_average",
+    "confidence_threshold": 0.7,
+    "fraud_threshold": 0.5,
+    "enable_explanation": true
+  },
+  "models": {
+    "xgboost_primary": {
+      "name": "xgboost_primary",
+      "model_type": "xgboost",
+      "model_path": "/app/models/xgboost/fraud_classifier.json",
+      "weight": 0.4,
+      "enabled": true,
+      "preprocessing_steps": ["normalize", "handle_missing"],
+      "hyperparameters": {
+        "n_estimators": 100,
+        "max_depth": 6,
+        "learning_rate": 0.1,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "objective": "binary:logistic",
+        "eval_metric": "auc"
+      }
+    },
+    "lstm_sequential": {
+      "name": "lstm_sequential",
+      "model_type": "tensorflow",
+      "model_path": "/app/models/tensorflow/lstm_fraud_model.h5",
+      "weight": 0.25,
+      "enabled": true,
+      "preprocessing_steps": ["sequence_padding", "normalize"],
+      "hyperparameters": {
+        "sequence_length": 10,
+        "hidden_units": 128,
+        "dropout": 0.2,
+        "batch_size": 32,
+        "epochs": 50
+      }
+    },
+    "bert_text": {
+      "name": "bert_text",
+      "model_type": "transformers",
+      "model_path": "/app/models/transformers/distilbert-fraud",
+      "weight": 0.15,
+      "enabled": true,
+      "preprocessing_steps": ["tokenize", "truncate"],
+      "hyperparameters": {
+        "max_length": 512,
+        "model_name": "distilbert-base-uncased",
+        "num_labels": 2,
+        "learning_rate": 2e-5,
+        "batch_size": 16
+      }
+    },
+    "graph_neural": {
+      "name": "graph_neural",
+      "model_type": "pytorch",
+      "model_path": "/app/models/pytorch/gnn_fraud_model.pth",
+      "weight": 0.15,
+      "enabled": true,
+      "preprocessing_steps": ["graph_construction", "normalize"],
+      "hyperparameters": {
+        "hidden_channels": 64,
+        "num_layers": 3,
+        "dropout": 0.1,
+        "learning_rate": 0.01,
+        "batch_size": 128
+      }
+    },
+    "isolation_forest": {
+      "name": "isolation_forest",
+      "model_type": "sklearn",
+      "model_path": "/app/models/sklearn/isolation_forest.joblib",
+      "weight": 0.05,
+      "enabled": true,
+      "preprocessing_steps": ["normalize"],
+      "hyperparameters": {
+        "contamination": 0.1,
+        "n_estimators": 100,
+        "random_state": 42,
+        "max_samples": "auto",
+        "max_features": 1.0
+      }
+    }
+  },
+  "feature_processing": {
+    "normalization_strategy": "robust",
+    "handle_missing_values": true,
+    "feature_selection": {
+      "enabled": false,
+      "method": "mutual_info",
+      "top_k_features": 50
+    },
+    "feature_engineering": {
+      "create_interactions": true,
+      "polynomial_features": false,
+      "time_based_features": true
+    }
+  },
+  "performance": {
+    "batch_prediction_size": 1000,
+    "max_concurrent_predictions": 100,
+    "prediction_timeout_seconds": 5.0,
+    "cache_ttl_seconds": 300,
+    "model_warmup_predictions": 10
+  },
+  "monitoring": {
+    "enable_drift_detection": true,
+    "drift_detection_window": 1000,
+    "drift_threshold": 0.05,
+    "enable_performance_tracking": true,
+    "enable_explainability": true,
+    "log_predictions": true,
+    "log_level": "INFO"
+  },
+  "security": {
+    "enable_input_validation": true,
+    "max_request_size_mb": 10,
+    "rate_limiting": {
+      "enabled": true,
+      "requests_per_minute": 1000,
+      "burst_size": 100
+    },
+    "authentication": {
+      "enabled": false,
+      "type": "bearer_token"
+    }
+  }
+}
