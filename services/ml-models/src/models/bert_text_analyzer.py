@@ -100,3 +100,78 @@ class BertTextAnalyzer:
         
         self.tokenizer = DummyTokenizer()
         self.model = DummyModel(self.device)
+    
+    def analyze_transaction_text(self, text_data: Dict[str, str]) -> Dict[str, float]:
+        """
+        Analyze transaction text fields for fraud indicators.
+        
+        Args:
+            text_data: Dictionary containing text fields like:
+                - merchant_name: Name of the merchant
+                - description: Transaction description
+                - category: Merchant category
+                - location: Transaction location
+        
+        Returns:
+            Dictionary with fraud risk scores for each text field
+        """
+        start_time = time.time()
+        
+        try:
+            results = {}
+            
+            # Analyze merchant name
+            if 'merchant_name' in text_data and text_data['merchant_name']:
+                merchant_score = self._analyze_single_text(
+                    text_data['merchant_name'], 
+                    "merchant"
+                )
+                results['merchant_name_risk'] = merchant_score
+            
+            # Analyze transaction description
+            if 'description' in text_data and text_data['description']:
+                desc_score = self._analyze_single_text(
+                    text_data['description'], 
+                    "description"
+                )
+                results['description_risk'] = desc_score
+            
+            # Analyze combined text for context
+            combined_text = self._create_combined_text(text_data)
+            if combined_text:
+                combined_score = self._analyze_single_text(combined_text, "combined")
+                results['combined_text_risk'] = combined_score
+            
+            # Calculate overall text risk score
+            if results:
+                # Weighted average of text risk scores
+                weights = {
+                    'merchant_name_risk': 0.4,
+                    'description_risk': 0.3,
+                    'combined_text_risk': 0.3
+                }
+                
+                total_weight = 0
+                weighted_sum = 0
+                
+                for field, score in results.items():
+                    weight = weights.get(field, 0.1)
+                    weighted_sum += score * weight
+                    total_weight += weight
+                
+                results['overall_text_risk'] = weighted_sum / total_weight if total_weight > 0 else 0.0
+            else:
+                results['overall_text_risk'] = 0.0
+            
+            # Update performance metrics
+            processing_time = (time.time() - start_time) * 1000
+            self.total_predictions += 1
+            self.total_time_ms += processing_time
+            
+            self.logger.debug(f"Text analysis completed in {processing_time:.2f}ms")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error in text analysis: {str(e)}")
+            return {'overall_text_risk': 0.0}
