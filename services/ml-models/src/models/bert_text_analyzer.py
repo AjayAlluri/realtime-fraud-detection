@@ -279,3 +279,134 @@ class BertTextAnalyzer:
             components.append(f"Location: {text_data['location']}")
         
         return " | ".join(components)
+    
+    def detect_fraud_patterns(self, text_data: Dict[str, str]) -> Dict[str, bool]:
+        """
+        Detect specific fraud patterns in text using rule-based analysis.
+        
+        Args:
+            text_data: Dictionary of text fields
+        
+        Returns:
+            Dictionary of detected fraud patterns
+        """
+        patterns = {
+            'crypto_keywords': False,
+            'gift_card_keywords': False,
+            'urgent_language': False,
+            'suspicious_merchant': False,
+            'known_scam_patterns': False
+        }
+        
+        # Combine all text for pattern detection
+        all_text = " ".join([
+            text_data.get('merchant_name', ''),
+            text_data.get('description', ''),
+            text_data.get('category', ''),
+            text_data.get('location', '')
+        ]).lower()
+        
+        # Crypto-related keywords
+        crypto_keywords = [
+            'bitcoin', 'btc', 'ethereum', 'eth', 'crypto', 'blockchain',
+            'coinbase', 'binance', 'wallet', 'mining', 'satoshi'
+        ]
+        patterns['crypto_keywords'] = any(keyword in all_text for keyword in crypto_keywords)
+        
+        # Gift card keywords
+        gift_card_keywords = [
+            'gift card', 'giftcard', 'itunes', 'amazon card', 'google play',
+            'steam card', 'prepaid card', 'reload card'
+        ]
+        patterns['gift_card_keywords'] = any(keyword in all_text for keyword in gift_card_keywords)
+        
+        # Urgent language patterns
+        urgent_keywords = [
+            'urgent', 'emergency', 'immediate', 'quickly', 'asap',
+            'limited time', 'act now', 'expires soon'
+        ]
+        patterns['urgent_language'] = any(keyword in all_text for keyword in urgent_keywords)
+        
+        # Suspicious merchant patterns
+        suspicious_patterns = [
+            'temp', 'temporary', 'cash advance', 'payday', 'loan',
+            'invest', 'forex', 'trading', 'pyramid', 'mlm'
+        ]
+        patterns['suspicious_merchant'] = any(pattern in all_text for pattern in suspicious_patterns)
+        
+        # Known scam patterns
+        scam_patterns = [
+            'nigerian prince', 'inheritance', 'lottery winner', 'tax refund',
+            'irs', 'social security', 'medicare', 'warranty expired'
+        ]
+        patterns['known_scam_patterns'] = any(pattern in all_text for pattern in scam_patterns)
+        
+        return patterns
+    
+    def get_text_features(self, text_data: Dict[str, str]) -> Dict[str, float]:
+        """
+        Extract numerical features from text for use in other ML models.
+        
+        Args:
+            text_data: Dictionary of text fields
+        
+        Returns:
+            Dictionary of numerical text features
+        """
+        features = {}
+        
+        # Text length features
+        merchant_name = text_data.get('merchant_name', '')
+        description = text_data.get('description', '')
+        
+        features['merchant_name_length'] = len(merchant_name)
+        features['description_length'] = len(description)
+        features['total_text_length'] = features['merchant_name_length'] + features['description_length']
+        
+        # Character diversity
+        if merchant_name:
+            features['merchant_name_unique_chars'] = len(set(merchant_name.lower()))
+            features['merchant_name_char_diversity'] = features['merchant_name_unique_chars'] / max(len(merchant_name), 1)
+        else:
+            features['merchant_name_unique_chars'] = 0
+            features['merchant_name_char_diversity'] = 0
+        
+        # Number patterns
+        import re
+        numbers_in_merchant = len(re.findall(r'\d', merchant_name))
+        numbers_in_description = len(re.findall(r'\d', description))
+        
+        features['numbers_in_merchant'] = numbers_in_merchant
+        features['numbers_in_description'] = numbers_in_description
+        features['total_numbers'] = numbers_in_merchant + numbers_in_description
+        
+        # Special character count
+        special_chars_merchant = len(re.findall(r'[^a-zA-Z0-9\s]', merchant_name))
+        special_chars_description = len(re.findall(r'[^a-zA-Z0-9\s]', description))
+        
+        features['special_chars_merchant'] = special_chars_merchant
+        features['special_chars_description'] = special_chars_description
+        features['total_special_chars'] = special_chars_merchant + special_chars_description
+        
+        # Word count features
+        merchant_words = len(merchant_name.split()) if merchant_name else 0
+        description_words = len(description.split()) if description else 0
+        
+        features['merchant_word_count'] = merchant_words
+        features['description_word_count'] = description_words
+        features['total_word_count'] = merchant_words + description_words
+        
+        return features
+    
+    def get_performance_stats(self) -> Dict[str, float]:
+        """Get performance statistics for the BERT analyzer."""
+        if self.total_predictions > 0:
+            avg_time = self.total_time_ms / self.total_predictions
+        else:
+            avg_time = 0.0
+        
+        return {
+            'total_predictions': self.total_predictions,
+            'avg_processing_time_ms': avg_time,
+            'total_processing_time_ms': self.total_time_ms
+        }
