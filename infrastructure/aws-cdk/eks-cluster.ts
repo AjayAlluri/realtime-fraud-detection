@@ -123,14 +123,16 @@ export class EksClusterStack extends cdk.Stack {
       // Encryption
       secretsEncryptionKey: clusterKmsKey,
       
-      // Logging
+      // Logging (at least API logging is required)
       clusterLogging: props.enableLogging ? [
         eks.ClusterLoggingTypes.API,
         eks.ClusterLoggingTypes.AUDIT,
         eks.ClusterLoggingTypes.AUTHENTICATOR,
         eks.ClusterLoggingTypes.CONTROLLER_MANAGER,
         eks.ClusterLoggingTypes.SCHEDULER,
-      ] : [],
+      ] : [
+        eks.ClusterLoggingTypes.API, // Minimum required logging
+      ],
 
       // Service role
       role: eksServiceRole,

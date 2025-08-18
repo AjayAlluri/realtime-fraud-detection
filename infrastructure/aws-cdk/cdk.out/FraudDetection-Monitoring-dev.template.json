@@ -1,0 +1,626 @@
+{
+ "Description": "Fraud Detection System - DEV",
+ "Resources": {
+  "FraudDetectionAlerts89DF2DE6": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "Fraud Detection System Alerts",
+    "TopicName": "fraud-detection-alerts-dev"
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/FraudDetectionAlerts/Resource"
+   }
+  },
+  "frauddetectionapilogs873B47EE": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/fraud-detection/dev/fraud-detection-api",
+    "RetentionInDays": 30
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/fraud-detection-api-logs/Resource"
+   }
+  },
+  "frauddetectionmlmodelslogsA821BCD0": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/fraud-detection/dev/fraud-detection-ml-models",
+    "RetentionInDays": 30
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/fraud-detection-ml-models-logs/Resource"
+   }
+  },
+  "frauddetectionflinklogs5AECE661": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/fraud-detection/dev/fraud-detection-flink",
+    "RetentionInDays": 30
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/fraud-detection-flink-logs/Resource"
+   }
+  },
+  "frauddetectiondatasimulatorlogs89BE3F3C": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/fraud-detection/dev/fraud-detection-data-simulator",
+    "RetentionInDays": 30
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/fraud-detection-data-simulator-logs/Resource"
+   }
+  },
+  "frauddetectionfeaturestorelogsB68B93A3": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/fraud-detection/dev/fraud-detection-feature-store",
+    "RetentionInDays": 30
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/fraud-detection-feature-store-logs/Resource"
+   }
+  },
+  "EksClusterLogs240E8E47": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/eks/fraud-detection-dev/cluster",
+    "RetentionInDays": 14
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/EksClusterLogs/Resource"
+   }
+  },
+  "MskLogs44ABFAE6": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/msk/fraud-detection-dev",
+    "RetentionInDays": 7
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/MskLogs/Resource"
+   }
+  },
+  "FraudDetectionDashboard2ED54D2F": {
+   "Type": "AWS::CloudWatch::Dashboard",
+   "Properties": {
+    "DashboardBody": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"widgets\":[{\"type\":\"text\",\"width\":24,\"height\":2,\"x\":0,\"y\":0,\"properties\":{\"markdown\":\"# Fraud Detection System - DEV\\n\\n## Application Metrics\"}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":2,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Transaction Processing Rate\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"FraudDetection/Transactions\",\"ProcessedTransactions\",{\"period\":60,\"stat\":\"Sum\"}],[\"FraudDetection/Transactions\",\"FraudDetected\",{\"period\":60,\"stat\":\"Sum\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":12,\"y\":2,\"properties\":{\"view\":\"timeSeries\",\"title\":\"ML Model Performance\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"FraudDetection/MLModels\",\"PredictionLatency\",{\"period\":60}],[\"FraudDetection/MLModels\",\"ModelAccuracy\"]],\"yAxis\":{}}},{\"type\":\"text\",\"width\":24,\"height\":1,\"x\":0,\"y\":8,\"properties\":{\"markdown\":\"## Infrastructure Metrics\"}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":0,\"y\":9,\"properties\":{\"view\":\"timeSeries\",\"title\":\"EKS Cluster CPU & Memory\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"AWS/EKS\",\"node_cpu_utilization\"],[\"AWS/EKS\",\"node_memory_utilization\",{\"yAxis\":\"right\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":8,\"y\":9,\"properties\":{\"view\":\"timeSeries\",\"title\":\"RDS Performance\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"AWS/RDS\",\"CPUUtilization\",\"DBClusterIdentifier\",\"",
+       {
+        "Fn::ImportValue": "FraudDetection-Services-dev:ExportsOutputRefFraudDetectionDb4BDF56E5A1EBCA47"
+       },
+       "\"],[\"AWS/RDS\",\"DatabaseConnections\",\"DBClusterIdentifier\",\"",
+       {
+        "Fn::ImportValue": "FraudDetection-Services-dev:ExportsOutputRefFraudDetectionDb4BDF56E5A1EBCA47"
+       },
+       "\",{\"yAxis\":\"right\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":8,\"height\":6,\"x\":16,\"y\":9,\"properties\":{\"view\":\"timeSeries\",\"title\":\"ElastiCache Performance\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"AWS/ElastiCache\",\"CPUUtilization\",\"CacheClusterId\",\"fraud-detection-redis-dev\"],[\"AWS/ElastiCache\",\"CurrConnections\",\"CacheClusterId\",\"fraud-detection-redis-dev\",{\"yAxis\":\"right\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":15,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Kafka Metrics\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"AWS/Kafka\",\"MessagesInPerSec\",\"Cluster Name\",\"fraud-detection-msk-dev\",{\"period\":60}],[\"AWS/Kafka\",\"BytesInPerSec\",\"Cluster Name\",\"fraud-detection-msk-dev\",{\"period\":60,\"yAxis\":\"right\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":12,\"y\":15,\"properties\":{\"view\":\"singleValue\",\"title\":\"System Health\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"FraudDetection/Health\",\"OverallHealthScore\"]]}}]}"
+      ]
+     ]
+    },
+    "DashboardName": "FraudDetection-dev"
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/FraudDetectionDashboard/Resource"
+   }
+  },
+  "HighErrorRate9827C77C": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "ComparisonOperator": "GreaterThanThreshold",
+    "EvaluationPeriods": 2,
+    "AlarmActions": [
+     {
+      "Ref": "FraudDetectionAlerts89DF2DE6"
+     }
+    ],
+    "AlarmDescription": "High error rate in fraud detection system",
+    "AlarmName": "FraudDetection-HighErrorRate-dev",
+    "MetricName": "ErrorRate",
+    "Namespace": "FraudDetection/Errors",
+    "Period": 300,
+    "Statistic": "Average",
+    "Threshold": 5
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/HighErrorRate/Resource"
+   }
+  },
+  "HighLatencyBDC1CAA1": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "ComparisonOperator": "GreaterThanThreshold",
+    "EvaluationPeriods": 3,
+    "AlarmActions": [
+     {
+      "Ref": "FraudDetectionAlerts89DF2DE6"
+     }
+    ],
+    "AlarmDescription": "High latency in ML model predictions",
+    "AlarmName": "FraudDetection-HighLatency-dev",
+    "MetricName": "PredictionLatency",
+    "Namespace": "FraudDetection/MLModels",
+    "Period": 300,
+    "Statistic": "Average",
+    "Threshold": 1000
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/HighLatency/Resource"
+   }
+  },
+  "LowModelAccuracy747C6084": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "ComparisonOperator": "LessThanThreshold",
+    "EvaluationPeriods": 2,
+    "AlarmActions": [
+     {
+      "Ref": "FraudDetectionAlerts89DF2DE6"
+     }
+    ],
+    "AlarmDescription": "ML model accuracy below threshold",
+    "AlarmName": "FraudDetection-LowModelAccuracy-dev",
+    "MetricName": "ModelAccuracy",
+    "Namespace": "FraudDetection/MLModels",
+    "Period": 900,
+    "Statistic": "Average",
+    "Threshold": 0.85
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/LowModelAccuracy/Resource"
+   }
+  },
+  "RdsHighCpu5FA94B5E": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "ComparisonOperator": "GreaterThanThreshold",
+    "EvaluationPeriods": 2,
+    "AlarmActions": [
+     {
+      "Ref": "FraudDetectionAlerts89DF2DE6"
+     }
+    ],
+    "AlarmDescription": "RDS cluster high CPU utilization",
+    "AlarmName": "FraudDetection-RDS-HighCPU-dev",
+    "Dimensions": [
+     {
+      "Name": "DBClusterIdentifier",
+      "Value": {
+       "Fn::ImportValue": "FraudDetection-Services-dev:ExportsOutputRefFraudDetectionDb4BDF56E5A1EBCA47"
+      }
+     }
+    ],
+    "MetricName": "CPUUtilization",
+    "Namespace": "AWS/RDS",
+    "Period": 300,
+    "Statistic": "Average",
+    "Threshold": 80
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/RdsHighCpu/Resource"
+   }
+  },
+  "RedisHighCpu19FFC024": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "ComparisonOperator": "GreaterThanThreshold",
+    "EvaluationPeriods": 2,
+    "AlarmActions": [
+     {
+      "Ref": "FraudDetectionAlerts89DF2DE6"
+     }
+    ],
+    "AlarmDescription": "Redis cluster high CPU utilization",
+    "AlarmName": "FraudDetection-Redis-HighCPU-dev",
+    "Dimensions": [
+     {
+      "Name": "CacheClusterId",
+      "Value": "fraud-detection-redis-dev"
+     }
+    ],
+    "MetricName": "CPUUtilization",
+    "Namespace": "AWS/ElastiCache",
+    "Period": 300,
+    "Statistic": "Average",
+    "Threshold": 80
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/RedisHighCpu/Resource"
+   }
+  },
+  "KafkaHighLag24495459": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "ComparisonOperator": "GreaterThanThreshold",
+    "EvaluationPeriods": 2,
+    "AlarmActions": [
+     {
+      "Ref": "FraudDetectionAlerts89DF2DE6"
+     }
+    ],
+    "AlarmDescription": "Kafka consumer lag is high",
+    "AlarmName": "FraudDetection-Kafka-HighLag-dev",
+    "Dimensions": [
+     {
+      "Name": "Cluster Name",
+      "Value": "fraud-detection-msk-dev"
+     }
+    ],
+    "MetricName": "EstimatedMaxTimeLag",
+    "Namespace": "AWS/Kafka",
+    "Period": 300,
+    "Statistic": "Maximum",
+    "Threshold": 60000
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/KafkaHighLag/Resource"
+   }
+  },
+  "CustomMetricsLambdaRole6DD251DF": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/CloudWatchFullAccess"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/CustomMetricsLambdaRole/Resource"
+   }
+  },
+  "CustomMetricsLambda356DBAAE": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "ZipFile": "\nimport json\nimport boto3\nimport requests\nfrom datetime import datetime\n\ncloudwatch = boto3.client('cloudwatch')\n\ndef handler(event, context):\n    \"\"\"\n    Custom metrics collection for fraud detection system\n    \"\"\"\n    try:\n        # Collect health metrics from various services\n        health_metrics = collect_health_metrics()\n        \n        # Collect business metrics\n        business_metrics = collect_business_metrics()\n        \n        # Send metrics to CloudWatch\n        send_metrics_to_cloudwatch(health_metrics + business_metrics)\n        \n        return {\n            'statusCode': 200,\n            'body': json.dumps('Metrics collected successfully')\n        }\n    except Exception as e:\n        print(f\"Error collecting metrics: {str(e)}\")\n        return {\n            'statusCode': 500,\n            'body': json.dumps(f'Error: {str(e)}')\n        }\n\ndef collect_health_metrics():\n    \"\"\"Collect system health metrics\"\"\"\n    metrics = []\n    \n    # Calculate overall health score based on various factors\n    health_score = calculate_health_score()\n    \n    metrics.append({\n        'MetricName': 'OverallHealthScore',\n        'Value': health_score,\n        'Unit': 'Percent',\n        'Timestamp': datetime.utcnow()\n    })\n    \n    return metrics\n\ndef collect_business_metrics():\n    \"\"\"Collect business-specific metrics\"\"\"\n    metrics = []\n    \n    # Example: Fraud detection rate\n    fraud_rate = get_fraud_detection_rate()\n    \n    metrics.append({\n        'MetricName': 'FraudDetectionRate',\n        'Value': fraud_rate,\n        'Unit': 'Percent',\n        'Timestamp': datetime.utcnow()\n    })\n    \n    return metrics\n\ndef calculate_health_score():\n    \"\"\"Calculate overall system health score\"\"\"\n    # This would integrate with your actual health check endpoints\n    # For now, return a sample value\n    return 95.0\n\ndef get_fraud_detection_rate():\n    \"\"\"Get current fraud detection rate\"\"\"\n    # This would query your actual fraud detection metrics\n    # For now, return a sample value\n    return 4.2\n\ndef send_metrics_to_cloudwatch(metrics):\n    \"\"\"Send metrics to CloudWatch\"\"\"\n    for metric in metrics:\n        cloudwatch.put_metric_data(\n            Namespace='FraudDetection/Custom',\n            MetricData=[{\n                'MetricName': metric['MetricName'],\n                'Value': metric['Value'],\n                'Unit': metric['Unit'],\n                'Timestamp': metric['Timestamp']\n            }]\n        )\n"
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomMetricsLambdaRole6DD251DF",
+      "Arn"
+     ]
+    },
+    "FunctionName": "fraud-detection-custom-metrics-dev",
+    "Handler": "index.handler",
+    "Runtime": "python3.9",
+    "Timeout": 60
+   },
+   "DependsOn": [
+    "CustomMetricsLambdaRole6DD251DF"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/CustomMetricsLambda/Resource"
+   }
+  },
+  "MetricsCollectionRule656FD28E": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "Description": "Trigger custom metrics collection every 5 minutes",
+    "ScheduleExpression": "rate(5 minutes)",
+    "State": "ENABLED",
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "CustomMetricsLambda356DBAAE",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/MetricsCollectionRule/Resource"
+   }
+  },
+  "MetricsCollectionRuleAllowEventRuleFraudDetectionMonitoringdevCustomMetricsLambdaE8486D630A9CA7F8": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CustomMetricsLambda356DBAAE",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "MetricsCollectionRule656FD28E",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/MetricsCollectionRule/AllowEventRuleFraudDetectionMonitoringdevCustomMetricsLambdaE8486D63"
+   }
+  },
+  "LogAnalysisLambdaRole2F4EF394": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/CloudWatchLogsFullAccess"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/CloudWatchFullAccess"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/LogAnalysisLambdaRole/Resource"
+   }
+  },
+  "LogAnalysisLambdaRoleDefaultPolicy0EAEE9C3": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "FraudDetectionAlerts89DF2DE6"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "LogAnalysisLambdaRoleDefaultPolicy0EAEE9C3",
+    "Roles": [
+     {
+      "Ref": "LogAnalysisLambdaRole2F4EF394"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/LogAnalysisLambdaRole/DefaultPolicy/Resource"
+   }
+  },
+  "LogAnalysisLambdaC6D438DA": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "ZipFile": {
+      "Fn::Join": [
+       "",
+       [
+        "\nimport json\nimport boto3\nimport re\nfrom datetime import datetime, timedelta\n\nlogs_client = boto3.client('logs')\ncloudwatch = boto3.client('cloudwatch')\nsns = boto3.client('sns')\n\ndef handler(event, context):\n    \"\"\"\n    Analyze logs for anomalies and security issues\n    \"\"\"\n    try:\n        # Analyze different log groups\n        log_groups = [\n            '/aws/fraud-detection/dev/fraud-detection-api',\n            '/aws/fraud-detection/dev/fraud-detection-ml-models',\n            '/aws/fraud-detection/dev/fraud-detection-flink'\n        ]\n        \n        for log_group in log_groups:\n            analyze_log_group(log_group)\n        \n        return {\n            'statusCode': 200,\n            'body': json.dumps('Log analysis completed')\n        }\n    except Exception as e:\n        print(f\"Error in log analysis: {str(e)}\")\n        return {\n            'statusCode': 500,\n            'body': json.dumps(f'Error: {str(e)}')\n        }\n\ndef analyze_log_group(log_group_name):\n    \"\"\"Analyze a specific log group for anomalies\"\"\"\n    try:\n        # Get logs from last 5 minutes\n        end_time = datetime.utcnow()\n        start_time = end_time - timedelta(minutes=5)\n        \n        response = logs_client.filter_log_events(\n            logGroupName=log_group_name,\n            startTime=int(start_time.timestamp() * 1000),\n            endTime=int(end_time.timestamp() * 1000)\n        )\n        \n        events = response.get('events', [])\n        \n        # Analyze events for patterns\n        error_count = count_errors(events)\n        security_issues = detect_security_issues(events)\n        \n        # Send metrics\n        if error_count > 0:\n            send_metric('ErrorCount', error_count, log_group_name)\n        \n        if security_issues > 0:\n            send_metric('SecurityIssues', security_issues, log_group_name)\n            send_security_alert(log_group_name, security_issues)\n            \n    except Exception as e:\n        print(f\"Error analyzing log group {log_group_name}: {str(e)}\")\n\ndef count_errors(events):\n    \"\"\"Count error events\"\"\"\n    error_patterns = [\n        r'ERROR',\n        r'Exception',\n        r'Failed',\n        r'Error:'\n    ]\n    \n    error_count = 0\n    for event in events:\n        message = event.get('message', '')\n        for pattern in error_patterns:\n            if re.search(pattern, message, re.IGNORECASE):\n                error_count += 1\n                break\n    \n    return error_count\n\ndef detect_security_issues(events):\n    \"\"\"Detect potential security issues\"\"\"\n    security_patterns = [\n        r'unauthorized',\n        r'forbidden',\n        r'authentication failed',\n        r'suspicious',\n        r'attack',\n        r'malicious'\n    ]\n    \n    security_count = 0\n    for event in events:\n        message = event.get('message', '')\n        for pattern in security_patterns:\n            if re.search(pattern, message, re.IGNORECASE):\n                security_count += 1\n                break\n    \n    return security_count\n\ndef send_metric(metric_name, value, log_group):\n    \"\"\"Send metric to CloudWatch\"\"\"\n    cloudwatch.put_metric_data(\n        Namespace='FraudDetection/LogAnalysis',\n        MetricData=[{\n            'MetricName': metric_name,\n            'Value': value,\n            'Unit': 'Count',\n            'Dimensions': [\n                {\n                    'Name': 'LogGroup',\n                    'Value': log_group\n                }\n            ],\n            'Timestamp': datetime.utcnow()\n        }]\n    )\n\ndef send_security_alert(log_group, count):\n    \"\"\"Send security alert via SNS\"\"\"\n    message = f\"Security issues detected in {log_group}: {count} potential issues found\"\n    \n    # This would use the actual SNS topic ARN\n    sns.publish(\n        TopicArn='",
+        {
+         "Ref": "FraudDetectionAlerts89DF2DE6"
+        },
+        "',\n        Message=message,\n        Subject='Fraud Detection Security Alert'\n    )\n"
+       ]
+      ]
+     }
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "LogAnalysisLambdaRole2F4EF394",
+      "Arn"
+     ]
+    },
+    "FunctionName": "fraud-detection-log-analysis-dev",
+    "Handler": "index.handler",
+    "MemorySize": 512,
+    "Runtime": "python3.9",
+    "Timeout": 300
+   },
+   "DependsOn": [
+    "LogAnalysisLambdaRoleDefaultPolicy0EAEE9C3",
+    "LogAnalysisLambdaRole2F4EF394"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/LogAnalysisLambda/Resource"
+   }
+  },
+  "LogAnalysisRule72005935": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "Description": "Trigger log analysis every 5 minutes",
+    "ScheduleExpression": "rate(5 minutes)",
+    "State": "ENABLED",
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "LogAnalysisLambdaC6D438DA",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/LogAnalysisRule/Resource"
+   }
+  },
+  "LogAnalysisRuleAllowEventRuleFraudDetectionMonitoringdevLogAnalysisLambda860D4A0CBEA00B22": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "LogAnalysisLambdaC6D438DA",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "LogAnalysisRule72005935",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/LogAnalysisRule/AllowEventRuleFraudDetectionMonitoringdevLogAnalysisLambda860D4A0C"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02QwU4DIRCGn8U7O5q9qEej0UsPzerdzAK20wLTMNDGEN5d2K3R0//93xCGMMLDPdzd4EUGbY6DoxnKe0J9VE19FgkC5YNPpNXzV1igKse7Zje8e4ucT33wy1Vpx9lcMOk9lBeU/cwYTT/yV54cRt/VAlUReigTO9vdklt2pL97XamtRD8bhPKag07Eoc/+89ZGTyKtVWXPNqT2wClfr2xZq5qscI56VVeuKrCxcJDb8zjCY/uIgxANMYdE3sK05g8EVb+oJAEAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "FraudDetection-Monitoring-dev/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

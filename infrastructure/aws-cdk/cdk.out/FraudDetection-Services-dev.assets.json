@@ -1,0 +1,20 @@
+{
+  "version": "32.0.0",
+  "files": {
+    "2c94b0eb06c7efc1026129e27c3c5cb962fdf9bd0be133ae7534e8c822273d7d": {
+      "source": {
+        "path": "FraudDetection-Services-dev.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "527540700703-us-west-2": {
+          "bucketName": "cdk-hnb659fds-assets-527540700703-us-west-2",
+          "objectKey": "2c94b0eb06c7efc1026129e27c3c5cb962fdf9bd0be133ae7534e8c822273d7d.json",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::527540700703:role/cdk-hnb659fds-file-publishing-role-527540700703-us-west-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
