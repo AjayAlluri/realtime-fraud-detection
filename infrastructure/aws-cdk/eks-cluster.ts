@@ -159,9 +159,6 @@ export class EksClusterStack extends cdk.Stack {
       
       // Scaling configuration
       forceUpdate: true,
-      updateConfig: {
-        maxUnavailable: 1,
-      },
       
       // Labels and taints
       labels: {
@@ -182,10 +179,6 @@ export class EksClusterStack extends cdk.Stack {
       amiType: eks.NodegroupAmiType.AL2_X86_64_GPU,
       capacityType: eks.CapacityType.SPOT, // Use spot instances for cost optimization
       diskSize: 200,
-      
-      updateConfig: {
-        maxUnavailable: 1,
-      },
       
       labels: {
         'workload-type': 'ml',
