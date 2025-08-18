@@ -4,6 +4,7 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as msk from 'aws-cdk-lib/aws-msk';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as kms from 'aws-cdk-lib/aws-kms';
@@ -21,7 +22,7 @@ export interface ManagedServicesProps extends cdk.StackProps {
 
 export class ManagedServicesStack extends cdk.Stack {
   public readonly rdsCluster: rds.DatabaseCluster;
-  public readonly redisCluster: elasticache.CfnCacheCluster;
+  public readonly redisCluster: elasticache.CfnReplicationGroup;
   public readonly mskCluster: msk.CfnCluster;
   public readonly dataLake: s3.Bucket;
   public readonly modelBucket: s3.Bucket;
@@ -127,8 +128,8 @@ export class ManagedServicesStack extends cdk.Stack {
     ];
 
     dataLakeFolders.forEach((folder, index) => {
-      new s3.BucketDeployment(this, `DataLakeFolder${index}`, {
-        sources: [s3.Source.data(folder, '')],
+      new s3deploy.BucketDeployment(this, `DataLakeFolder${index}`, {
+        sources: [s3deploy.Source.data(folder, '')],
         destinationBucket: this.dataLake,
         destinationKeyPrefix: folder,
       });

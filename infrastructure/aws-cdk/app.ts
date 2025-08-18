@@ -34,7 +34,7 @@ const eksStack = new EksClusterStack(app, `FraudDetection-EKS-${environment}`, {
   ...stackProps,
   clusterName: `fraud-detection-${environment}`,
   region,
-  kubernetesVersion: eks.KubernetesVersion.V1_28,
+  kubernetesVersion: eks.KubernetesVersion.V1_27,
   nodeInstanceTypes: [
     ec2.InstanceType.of(ec2.InstanceClass.M5, ec2.InstanceSize.LARGE),
     ec2.InstanceType.of(ec2.InstanceClass.M5, ec2.InstanceSize.XLARGE),
