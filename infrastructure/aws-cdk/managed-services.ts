@@ -21,12 +21,12 @@ export interface ManagedServicesProps extends cdk.StackProps {
 }
 
 export class ManagedServicesStack extends cdk.Stack {
-  public readonly rdsCluster: rds.DatabaseCluster;
-  public readonly redisCluster: elasticache.CfnReplicationGroup;
-  public readonly mskCluster: msk.CfnCluster;
-  public readonly dataLake: s3.Bucket;
-  public readonly modelBucket: s3.Bucket;
-  public readonly kinesisStream: kinesis.Stream;
+  public readonly rdsCluster!: rds.DatabaseCluster;
+  public readonly redisCluster!: elasticache.CfnReplicationGroup;
+  public readonly mskCluster!: msk.CfnCluster;
+  public readonly dataLake!: s3.Bucket;
+  public readonly modelBucket!: s3.Bucket;
+  public readonly kinesisStream!: kinesis.Stream;
 
   constructor(scope: Construct, id: string, props: ManagedServicesProps) {
     super(scope, id, props);
@@ -179,7 +179,7 @@ export class ManagedServicesStack extends cdk.Stack {
     // Create RDS Aurora PostgreSQL cluster
     this.rdsCluster = new rds.DatabaseCluster(this, 'FraudDetectionDb', {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.VER_15_3,
+        version: rds.AuroraPostgresEngineVersion.VER_14_6,
       }),
       credentials: rds.Credentials.fromSecret(dbCredentials),
       
@@ -212,11 +212,6 @@ export class ManagedServicesStack extends cdk.Stack {
       
       // Maintenance
       preferredMaintenanceWindow: 'sun:04:00-sun:05:00',
-      
-      // Monitoring
-      monitoring: {
-        interval: cdk.Duration.seconds(60),
-      },
       
       // Database configuration
       defaultDatabaseName: 'fraud_detection',
