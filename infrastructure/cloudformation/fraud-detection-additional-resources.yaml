@@ -1,0 +1,580 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Additional AWS resources for Fraud Detection System'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Environment name for resource naming
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID where resources will be created
+  
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Private subnet IDs for database resources
+  
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnet IDs for load balancers
+  
+  EksClusterName:
+    Type: String
+    Description: EKS cluster name for IAM integration
+  
+  AlertEmail:
+    Type: String
+    Description: Email address for alerts
+    Default: admin@example.com
+
+Conditions:
+  IsProd: !Equals [!Ref EnvironmentName, prod]
+  IsNotDev: !Not [!Equals [!Ref EnvironmentName, dev]]
+
+Resources:
+  # IAM Roles and Policies
+  FraudDetectionServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'FraudDetection-ServiceRole-${EnvironmentName}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+                - ecs-tasks.amazonaws.com
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+      Policies:
+        - PolicyName: FraudDetectionServicePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - kms:Decrypt
+                  - kinesis:*
+                  - sagemaker:InvokeEndpoint
+                  - cloudwatch:PutMetricData
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # Application Load Balancer for external access
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub 'fraud-detection-alb-${EnvironmentName}'
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets: !Ref PublicSubnetIds
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: FraudDetection
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'fraud-detection-alb-sg-${EnvironmentName}'
+      GroupDescription: Security group for Fraud Detection ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS access
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: All outbound traffic
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: FraudDetection
+
+  # Target Groups for different services
+  MLModelsTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub 'fraud-ml-models-${EnvironmentName}'
+      Protocol: HTTP
+      Port: 8000
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  FlinkUITargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub 'fraud-flink-ui-${EnvironmentName}'
+      Protocol: HTTP
+      Port: 8081
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # ALB Listeners
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            StatusCode: 404
+            ContentType: text/plain
+            MessageBody: 'Service not found'
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # Listener Rules
+  MLModelsListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref MLModelsTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values: ['/api/*']
+      ListenerArn: !Ref ALBListener
+      Priority: 100
+
+  FlinkUIListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref FlinkUITargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values: ['/flink/*']
+      ListenerArn: !Ref ALBListener
+      Priority: 200
+
+  # WAF for application protection
+  WebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub 'FraudDetection-WAF-${EnvironmentName}'
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      Rules:
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: CommonRuleSetMetric
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: KnownBadInputsRuleSetMetric
+        - Name: RateLimitRule
+          Priority: 3
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              Limit: 2000
+              AggregateKeyType: IP
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimitMetric
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub 'FraudDetection-WAF-${EnvironmentName}'
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # Associate WAF with ALB
+  WebACLAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref ApplicationLoadBalancer
+      WebACLArn: !GetAtt WebACL.Arn
+
+  # Route 53 Hosted Zone (if needed)
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Condition: IsProd
+    Properties:
+      Name: !Sub 'fraud-detection-${EnvironmentName}.example.com'
+      HostedZoneConfig:
+        Comment: !Sub 'Hosted zone for Fraud Detection ${EnvironmentName}'
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # CloudFront Distribution for global access
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Condition: IsProd
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub 'Fraud Detection CDN - ${EnvironmentName}'
+        DefaultRootObject: index.html
+        Origins:
+          - Id: ALBOrigin
+            DomainName: !GetAtt ApplicationLoadBalancer.DNSName
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          TargetOriginId: ALBOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          Compress: true
+          ForwardedValues:
+            QueryString: true
+            Headers: [Authorization, CloudFront-Forwarded-Proto]
+            Cookies:
+              Forward: none
+        CacheBehaviors:
+          - PathPattern: '/api/*'
+            TargetOriginId: ALBOrigin
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            TTL:
+              DefaultTTL: 0
+              MaxTTL: 0
+              MinTTL: 0
+            ForwardedValues:
+              QueryString: true
+              Headers: ['*']
+              Cookies:
+                Forward: all
+        PriceClass: PriceClass_100
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # Systems Manager Parameters for configuration
+  MLModelConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/fraud-detection/${EnvironmentName}/ml-models/config'
+      Type: String
+      Value: !Sub |
+        {
+          "environment": "${EnvironmentName}",
+          "model_bucket": "fraud-detection-models-${EnvironmentName}-${AWS::AccountId}",
+          "data_bucket": "fraud-detection-data-lake-${EnvironmentName}-${AWS::AccountId}",
+          "redis_endpoint": "fraud-detection-redis-${EnvironmentName}.cache.amazonaws.com",
+          "kafka_bootstrap_servers": "fraud-detection-msk-${EnvironmentName}.kafka.amazonaws.com:9092",
+          "prediction_threshold": 0.7,
+          "enable_a_b_testing": true
+        }
+      Description: Configuration for ML models service
+
+  DatabaseConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/fraud-detection/${EnvironmentName}/database/config'
+      Type: String
+      Value: !Sub |
+        {
+          "environment": "${EnvironmentName}",
+          "cluster_endpoint": "fraud-detection-${EnvironmentName}.cluster-xyz.rds.amazonaws.com",
+          "database_name": "fraud_detection",
+          "port": 5432,
+          "ssl_mode": "require"
+        }
+      Description: Configuration for RDS database
+
+  # CloudWatch Log Groups for centralized logging
+  ApplicationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/fraud-detection/${EnvironmentName}/application'
+      RetentionInDays: !If [IsProd, 90, 30]
+
+  SecurityLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/fraud-detection/${EnvironmentName}/security'
+      RetentionInDays: !If [IsProd, 365, 90]
+
+  # EventBridge Custom Bus for fraud detection events
+  FraudDetectionEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub 'fraud-detection-${EnvironmentName}'
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # EventBridge Rule for high-risk transactions
+  HighRiskTransactionRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'fraud-detection-high-risk-${EnvironmentName}'
+      EventBusName: !Ref FraudDetectionEventBus
+      EventPattern:
+        source: ['fraud-detection.ml-models']
+        detail-type: ['Transaction Scored']
+        detail:
+          risk_score: [{'numeric': ['>=', 0.8]}]
+      State: ENABLED
+      Targets:
+        - Arn: !Ref HighRiskAlertTopic
+          Id: HighRiskTransactionTarget
+
+  # SNS Topics for different alert types
+  HighRiskAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'fraud-detection-high-risk-${EnvironmentName}'
+      DisplayName: 'High Risk Transaction Alerts'
+
+  SystemAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'fraud-detection-system-${EnvironmentName}'
+      DisplayName: 'System Health Alerts'
+
+  # SNS Subscriptions
+  HighRiskEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      TopicArn: !Ref HighRiskAlertTopic
+      Endpoint: !Ref AlertEmail
+
+  SystemEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      TopicArn: !Ref SystemAlertTopic
+      Endpoint: !Ref AlertEmail
+
+  # Lambda function for processing high-risk alerts
+  HighRiskProcessorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'fraud-detection-high-risk-processor-${EnvironmentName}'
+      Runtime: python3.9
+      Handler: index.handler
+      Role: !GetAtt HighRiskProcessorRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref EnvironmentName
+          SNS_TOPIC_ARN: !Ref HighRiskAlertTopic
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime
+
+          sns = boto3.client('sns')
+          
+          def handler(event, context):
+              """Process high-risk transaction alerts"""
+              try:
+                  for record in event.get('Records', []):
+                      if 'EventBridge' in record.get('eventSource', ''):
+                          detail = json.loads(record['body'])['detail']
+                          
+                          # Extract transaction details
+                          transaction_id = detail.get('transaction_id')
+                          risk_score = detail.get('risk_score')
+                          user_id = detail.get('user_id')
+                          amount = detail.get('amount')
+                          
+                          # Create alert message
+                          message = create_alert_message(transaction_id, risk_score, user_id, amount)
+                          
+                          # Send to SNS
+                          sns.publish(
+                              TopicArn=os.environ['SNS_TOPIC_ARN'],
+                              Subject=f"HIGH RISK TRANSACTION ALERT - {os.environ['ENVIRONMENT'].upper()}",
+                              Message=message
+                          )
+                  
+                  return {'statusCode': 200, 'body': 'Alerts processed successfully'}
+              
+              except Exception as e:
+                  print(f"Error processing alerts: {str(e)}")
+                  return {'statusCode': 500, 'body': f'Error: {str(e)}'}
+          
+          def create_alert_message(transaction_id, risk_score, user_id, amount):
+              """Create formatted alert message"""
+              return f"""
+              HIGH RISK TRANSACTION DETECTED
+              
+              Transaction ID: {transaction_id}
+              Risk Score: {risk_score:.3f}
+              User ID: {user_id}
+              Amount: ${amount:,.2f}
+              Timestamp: {datetime.utcnow().isoformat()}
+              Environment: {os.environ['ENVIRONMENT']}
+              
+              Immediate action may be required.
+              Please review this transaction in the fraud detection dashboard.
+              """
+
+  HighRiskProcessorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SNSPublishPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref HighRiskAlertTopic
+
+  # EventBridge target for Lambda function
+  HighRiskLambdaTarget:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'fraud-detection-lambda-target-${EnvironmentName}'
+      EventBusName: !Ref FraudDetectionEventBus
+      EventPattern:
+        source: ['fraud-detection.ml-models']
+        detail-type: ['Transaction Scored']
+        detail:
+          risk_score: [{'numeric': ['>=', 0.8]}]
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt HighRiskProcessorFunction.Arn
+          Id: HighRiskLambdaTarget
+
+  # Permission for EventBridge to invoke Lambda
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref HighRiskProcessorFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt HighRiskLambdaTarget.Arn
+
+Outputs:
+  ApplicationLoadBalancerDNS:
+    Description: DNS name of the Application Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: !Sub '${AWS::StackName}-ALB-DNS'
+
+  ApplicationLoadBalancerZone:
+    Description: Hosted zone ID of the Application Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID
+    Export:
+      Name: !Sub '${AWS::StackName}-ALB-Zone'
+
+  WebACLArn:
+    Description: ARN of the WAF Web ACL
+    Value: !GetAtt WebACL.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-WebACL-ARN'
+
+  CloudFrontDistributionDomain:
+    Condition: IsProd
+    Description: Domain name of the CloudFront distribution
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFront-Domain'
+
+  EventBusArn:
+    Description: ARN of the custom EventBridge bus
+    Value: !GetAtt FraudDetectionEventBus.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EventBus-ARN'
+
+  HighRiskTopicArn:
+    Description: ARN of the high-risk alert SNS topic
+    Value: !Ref HighRiskAlertTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-HighRisk-Topic-ARN'
+
+  SystemTopicArn:
+    Description: ARN of the system alert SNS topic
+    Value: !Ref SystemAlertTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-System-Topic-ARN'
+
+  ServiceRoleArn:
+    Description: ARN of the fraud detection service role
+    Value: !GetAtt FraudDetectionServiceRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-Service-Role-ARN'
