@@ -12,6 +12,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import { Construct } from 'constructs';
 
 export interface MonitoringProps extends cdk.StackProps {
@@ -25,7 +26,7 @@ export interface MonitoringProps extends cdk.StackProps {
 
 export class MonitoringStack extends cdk.Stack {
   public readonly alertTopic: sns.Topic;
-  public readonly dashboard: cloudwatch.Dashboard;
+  public dashboard: cloudwatch.Dashboard;
 
   constructor(scope: Construct, id: string, props: MonitoringProps) {
     super(scope, id, props);
@@ -305,7 +306,7 @@ export class MonitoringStack extends cdk.Stack {
       threshold: 5, // 5% error rate
       evaluationPeriods: 2,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-    }).addAlarmAction(new cloudwatch.SnsAction(this.alertTopic));
+    }).addAlarmAction(new cw_actions.SnsAction(this.alertTopic));
 
     // High latency alarm
     new cloudwatch.Alarm(this, 'HighLatency', {
@@ -320,7 +321,7 @@ export class MonitoringStack extends cdk.Stack {
       threshold: 1000, // 1 second
       evaluationPeriods: 3,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-    }).addAlarmAction(new cloudwatch.SnsAction(this.alertTopic));
+    }).addAlarmAction(new cw_actions.SnsAction(this.alertTopic));
 
     // Low model accuracy alarm
     new cloudwatch.Alarm(this, 'LowModelAccuracy', {
@@ -335,7 +336,7 @@ export class MonitoringStack extends cdk.Stack {
       threshold: 0.85, // 85% accuracy
       evaluationPeriods: 2,
       comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
-    }).addAlarmAction(new cloudwatch.SnsAction(this.alertTopic));
+    }).addAlarmAction(new cw_actions.SnsAction(this.alertTopic));
 
     // RDS CPU alarm
     new cloudwatch.Alarm(this, 'RdsHighCpu', {
@@ -353,7 +354,7 @@ export class MonitoringStack extends cdk.Stack {
       threshold: 80,
       evaluationPeriods: 2,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-    }).addAlarmAction(new cloudwatch.SnsAction(this.alertTopic));
+    }).addAlarmAction(new cw_actions.SnsAction(this.alertTopic));
 
     // Redis CPU alarm
     new cloudwatch.Alarm(this, 'RedisHighCpu', {
@@ -371,7 +372,7 @@ export class MonitoringStack extends cdk.Stack {
       threshold: 80,
       evaluationPeriods: 2,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-    }).addAlarmAction(new cloudwatch.SnsAction(this.alertTopic));
+    }).addAlarmAction(new cw_actions.SnsAction(this.alertTopic));
 
     // Kafka lag alarm
     new cloudwatch.Alarm(this, 'KafkaHighLag', {
@@ -389,7 +390,7 @@ export class MonitoringStack extends cdk.Stack {
       threshold: 60000, // 60 seconds
       evaluationPeriods: 2,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-    }).addAlarmAction(new cloudwatch.SnsAction(this.alertTopic));
+    }).addAlarmAction(new cw_actions.SnsAction(this.alertTopic));
   }
 
   private createCustomMetricsLambda(environmentName: string): void {
