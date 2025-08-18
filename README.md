@@ -1,26 +1,26 @@
 # Real-Time Payment Fraud Detection System
 
-A distributed, real-time fraud detection system built with Apache Kafka, Apache Flink, Redis, and AWS services. This system processes payment transactions in real-time, applies multiple machine learning models for fraud detection, and provides instant decisions with sub-100ms latency.
+A distributed, real-time fraud detection system built with Apache Kafka, Apache Flink, Redis, and machine learning models. This system processes payment transactions in real-time, applies multiple ML models for fraud detection, and provides instant decisions with sub-100ms latency.
 
 ## Architecture Overview
 
 ```
 Payment Transactions → Kafka → Flink (ML Processing) → Redis → Decision Engine
                         ↓
-                   AWS S3 (Data Lake) → SageMaker (ML Training) → Model Registry
+                   Feature Store → ML Models → Real-time Predictions
                         ↓
-                   Real-time Dashboard ← WebSocket ← API Gateway
+                   Real-time Dashboard ← WebSocket ← REST API
                         ↓
-              Kubernetes Orchestration ← Docker Containers ← CI/CD Pipeline
+              Kubernetes Orchestration ← Docker Containers ← Local Development
 ```
 
 ## Key Features
 
 - **Real-time Processing**: Handles 10,000+ transactions/second with <100ms latency
-- **Advanced ML Models**: XGBoost, LSTM, BERT, and Graph Neural Networks
+- **Advanced ML Models**: XGBoost, BERT, Graph Neural Networks, and Ensemble Learning
 - **Distributed Architecture**: Kafka clustering, Flink cluster, Redis cluster
-- **AWS Integration**: S3 data lake, DynamoDB, Lambda functions, SageMaker
-- **Live Dashboard**: React-based real-time monitoring and analytics
+- **Container Native**: Full Docker and Kubernetes deployment
+- **Production Ready**: Comprehensive monitoring, logging, and CI/CD pipeline
 - **High Availability**: 99.9% uptime with fault tolerance
 
 ## Technology Stack
@@ -39,11 +39,10 @@ Payment Transactions → Kafka → Flink (ML Processing) → Redis → Decision 
 - **Graph Neural Networks**: Network fraud detection
 - **Isolation Forest**: Anomaly detection
 
-### Cloud & Storage
-- **AWS S3**: Data lake for historical data
-- **AWS DynamoDB**: User profiles and metadata
-- **AWS Lambda**: Serverless processing
-- **AWS SageMaker**: ML model training and deployment
+### Data Storage & Processing
+- **Local Storage**: File-based data lake for development
+- **Redis**: High-performance feature store and caching
+- **PostgreSQL**: Transaction metadata and user profiles
 
 ### Frontend & API
 - **React**: Real-time dashboard
@@ -126,12 +125,12 @@ open http://localhost:3000
 - Service mesh for secure communication
 - GitOps deployment workflows
 
-### Phase 5: AWS Integration
-- S3 data lake for batch processing
-- DynamoDB for user profiles
-- Lambda functions for serverless processing
-- CloudWatch monitoring and alerting
-- EKS for managed Kubernetes
+### Phase 5: Production Deployment
+- Production-ready monitoring and logging
+- Persistent volumes for data storage
+- Load balancing and ingress configuration
+- Comprehensive CI/CD pipeline
+- Security policies and RBAC
 
 ### Phase 6: Dashboard & Optimization
 - React dashboard with real-time visualizations
