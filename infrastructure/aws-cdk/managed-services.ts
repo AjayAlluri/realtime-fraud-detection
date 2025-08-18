@@ -116,24 +116,8 @@ export class ManagedServicesStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // Create folders in data lake bucket
-    const dataLakeFolders = [
-      'raw-transactions/',
-      'processed-transactions/',
-      'feature-store/',
-      'model-training-data/',
-      'model-predictions/',
-      'audit-logs/',
-      'system-metrics/',
-    ];
-
-    dataLakeFolders.forEach((folder, index) => {
-      new s3deploy.BucketDeployment(this, `DataLakeFolder${index}`, {
-        sources: [s3deploy.Source.data(folder, '')],
-        destinationBucket: this.dataLake,
-        destinationKeyPrefix: folder,
-      });
-    });
+    // Note: S3 folders will be created automatically when objects are uploaded to them
+    // No need to explicitly create empty folders as S3 is object-based storage
   }
 
   private createRdsCluster(
