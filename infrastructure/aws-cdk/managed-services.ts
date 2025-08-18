@@ -21,12 +21,12 @@ export interface ManagedServicesProps extends cdk.StackProps {
 }
 
 export class ManagedServicesStack extends cdk.Stack {
-  public readonly rdsCluster!: rds.DatabaseCluster;
-  public readonly redisCluster!: elasticache.CfnReplicationGroup;
-  public readonly mskCluster!: msk.CfnCluster;
-  public readonly dataLake!: s3.Bucket;
-  public readonly modelBucket!: s3.Bucket;
-  public readonly kinesisStream!: kinesis.Stream;
+  public rdsCluster!: rds.DatabaseCluster;
+  public redisCluster!: elasticache.CfnReplicationGroup;
+  public mskCluster!: msk.CfnCluster;
+  public dataLake!: s3.Bucket;
+  public modelBucket!: s3.Bucket;
+  public kinesisStream!: kinesis.Stream;
 
   constructor(scope: Construct, id: string, props: ManagedServicesProps) {
     super(scope, id, props);
