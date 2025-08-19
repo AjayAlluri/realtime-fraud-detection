@@ -67,7 +67,7 @@ Payment Transactions → Kafka → Flink (ML Processing) → Redis → Decision 
 - Node.js 16+
 - kubectl (for Kubernetes deployment)
 - Helm 3+ (for Kubernetes package management)
-- AWS CLI (for Phase 4)
+
 
 ### Launch the System
 
@@ -178,7 +178,7 @@ realtime-fraud-detection/
 │   ├── helm/             # Helm charts
 │   ├── manifests/        # Raw YAML files
 │   └── operators/        # Custom operators
-├── infrastructure/         # AWS CDK, Terraform
+├── infrastructure/         # CDK, Terraform
 ├── services/              # Microservices
 │   ├── data-simulator/    # Transaction generation
 │   ├── flink-jobs/       # Stream processing
