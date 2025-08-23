@@ -63,8 +63,8 @@ Payment Transactions → Kafka → Flink (ML Processing) → Redis → Decision 
 ### Prerequisites
 - Docker Desktop
 - Java 11+
-- Python 3.8+
-- Node.js 16+
+- Python
+- Node.js
 - kubectl (for Kubernetes deployment)
 - Helm 3+ (for Kubernetes package management)
 
